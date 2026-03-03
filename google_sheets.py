@@ -1,0 +1,171 @@
+"""Google Sheets integration for reading disintermediation cases and partner emails."""
+
+from pathlib import Path
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+SA_FILE = Path(__file__).parent / "service_account.json"
+
+DISINTERMEDIATION_SHEET_ID = "1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ"
+PARTNER_SHEET_ID = "1VOKkuHN-lcx0Ps2VRSV_4IfkuG5fwFZb6UyT9gYVPeY"
+ESCALATION_SHEET_ID = "1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc"
+
+SCOPES_READONLY = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+SCOPES_READWRITE = ["https://www.googleapis.com/auth/spreadsheets"]
+
+
+def _get_service(readonly=True):
+    scopes = SCOPES_READONLY if readonly else SCOPES_READWRITE
+    creds = service_account.Credentials.from_service_account_file(
+        str(SA_FILE), scopes=scopes,
+    )
+    return build("sheets", "v4", credentials=creds)
+
+
+def fetch_disintermediation_cases() -> list[dict]:
+    """Read all rows from the disintermediation sheet."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=DISINTERMEDIATION_SHEET_ID,
+        range="Sheet1!A1:U5000",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return []
+
+    headers = rows[0]
+    cases = []
+    for row in rows[1:]:
+        # Pad row to match headers length
+        padded = row + [""] * (len(headers) - len(row))
+        case = {headers[i]: padded[i] for i in range(len(headers))}
+        cases.append(case)
+    return cases
+
+
+def fetch_partner_emails() -> dict:
+    """Return {partner_name_lower: email} from Email_dump tab."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=PARTNER_SHEET_ID,
+        range="Email_dump!A1:M5000",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return {}
+
+    headers = rows[0]
+    emails = {}
+    for row in rows[1:]:
+        padded = row + [""] * (len(headers) - len(row))
+        record = {headers[i]: padded[i] for i in range(len(headers))}
+        name = (record.get("Partner Name") or "").strip()
+        email = (record.get("Email id of Partner") or record.get("PARTNER_EMAIL") or "").strip()
+        partner_id = (record.get("PARTNER_ID") or "").strip()
+        if name and email:
+            emails[name.lower()] = {"email": email, "partner_id": partner_id, "name": name}
+    return emails
+
+
+def fetch_partner_status_emails() -> dict:
+    """Fallback: read emails from 'Partner Status Final' tab. Returns {partner_name_lower: email}."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=PARTNER_SHEET_ID,
+        range="'Partner Status Final'!A1:Q5000",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 3:
+        return {}
+
+    # Row 0 is metadata, row 1 is headers
+    headers = rows[1]
+    emails = {}
+    for row in rows[2:]:
+        padded = row + [""] * (len(headers) - len(row))
+        record = {headers[i]: padded[i] for i in range(len(headers))}
+        name = (record.get("PARTNER_NAME") or "").strip()
+        email = (record.get("Email") or "").strip()
+        partner_id = (record.get("PARTNER_ID") or "").strip()
+        if name and email:
+            emails[name.lower()] = {"email": email, "partner_id": partner_id, "name": name}
+    return emails
+
+
+def get_all_partner_emails() -> dict:
+    """Merge emails from both tabs, Email_dump takes priority."""
+    status_emails = fetch_partner_status_emails()
+    dump_emails = fetch_partner_emails()
+    # Merge: dump overrides status
+    merged = {**status_emails, **dump_emails}
+    return merged
+
+
+def get_existing_escalation_customers() -> set:
+    """Return set of customer mobiles already in the FP1 Escalation sheet."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=ESCALATION_SHEET_ID,
+        range="'FP1 : Escalation'!C2:C5000",
+    ).execute()
+    rows = result.get("values", [])
+    return {r[0].strip() for r in rows if r and r[0].strip()}
+
+
+def fetch_fp4_cases() -> list[dict]:
+    """Read all rows from the FP4 : Router Misuse tab."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=ESCALATION_SHEET_ID,
+        range="'FP4 : Router Misuse'!A1:Q5000",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return []
+
+    headers = rows[0]
+    cases = []
+    for row in rows[1:]:
+        padded = row + [""] * (len(headers) - len(row))
+        case = {headers[i]: padded[i] for i in range(len(headers))}
+        cases.append(case)
+    return cases
+
+
+def get_existing_fp4_customers() -> set:
+    """Return set of customer details already in the FP4 sheet."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=ESCALATION_SHEET_ID,
+        range="'FP4 : Router Misuse'!C2:C5000",
+    ).execute()
+    rows = result.get("values", [])
+    return {r[0].strip() for r in rows if r and r[0].strip()}
+
+
+def append_fp4_rows(rows: list[list]) -> int:
+    """Append rows to FP4 Router Misuse tab. Returns number of rows appended."""
+    service = _get_service(readonly=False)
+    body = {"values": rows}
+    result = service.spreadsheets().values().append(
+        spreadsheetId=ESCALATION_SHEET_ID,
+        range="'FP4 : Router Misuse'!A1",
+        valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS",
+        body=body,
+    ).execute()
+    return result.get("updates", {}).get("updatedRows", 0)
+
+
+def append_escalation_rows(rows: list[list]) -> int:
+    """Append rows to FP1 Escalation tab. Returns number of rows appended."""
+    service = _get_service(readonly=False)
+    body = {"values": rows}
+    result = service.spreadsheets().values().append(
+        spreadsheetId=ESCALATION_SHEET_ID,
+        range="'FP1 : Escalation'!A1",
+        valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS",
+        body=body,
+    ).execute()
+    return result.get("updates", {}).get("updatedRows", 0)

@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+settings.json
+service_account.json
+breach_tracker.db
