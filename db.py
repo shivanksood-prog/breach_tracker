@@ -6,18 +6,16 @@ DB_PATH = Path(__file__).parent / "breach_tracker.db"
 
 VALID_TRANSITIONS = {
     "detected":          ["customer_refunded"],
-    "customer_refunded": ["partner_penalty"],
-    "partner_penalty":   ["customer_comms"],
-    "customer_comms":    ["partner_comms"],
-    "partner_comms":     [],
+    "customer_refunded": ["customer_comms"],
+    "customer_comms":    ["partner_penalty"],
+    "partner_penalty":   [],
 }
 
 STATE_LABELS = {
     "detected":          "Detected",
     "customer_refunded": "Customer Refunded",
-    "partner_penalty":   "Partner Penalty",
     "customer_comms":    "Customer Comms",
-    "partner_comms":     "Partner Comms",
+    "partner_penalty":   "Partner Penalty",
 }
 
 
@@ -176,6 +174,10 @@ def _migrate():
             conn.execute("ALTER TABLE cases ADD COLUMN previous_state TEXT")
         except Exception:
             pass  # already exists
+        try:
+            conn.execute("ALTER TABLE cases ADD COLUMN refund_payout_link TEXT")
+        except Exception:
+            pass  # already exists
 
 
 def now_ist() -> str:
@@ -231,9 +233,8 @@ def advance_state(ticket_id: str, new_state: str) -> bool:
             return False
         ts_col = {
             "customer_refunded": "customer_refunded_at",
-            "partner_penalty":   "partner_penalty_at",
             "customer_comms":    "customer_comms_at",
-            "partner_comms":     "partner_comms_at",
+            "partner_penalty":   "partner_penalty_at",
         }.get(new_state)
         ts = now_ist()
         if ts_col:
@@ -261,9 +262,8 @@ def undo_state(ticket_id: str) -> bool:
         # Clear the timestamp of the state we're reverting from
         ts_col = {
             "customer_refunded": "customer_refunded_at",
-            "partner_penalty":   "partner_penalty_at",
             "customer_comms":    "customer_comms_at",
-            "partner_comms":     "partner_comms_at",
+            "partner_penalty":   "partner_penalty_at",
         }.get(current)
         ts = now_ist()
         if ts_col:
@@ -297,6 +297,48 @@ def mark_penalty_sent(ticket_ids: list):
                 "UPDATE cases SET penalty_csv_sent=1, penalty_csv_sent_at=? WHERE ticket_id=?",
                 (ts, tid),
             )
+
+
+def mark_refunded_by_mobile(mobile: str, payout_link_id: str) -> dict:
+    """Find case by customer_mobile in 'detected' state, advance to 'customer_refunded',
+    store payout link URL. Returns match result dict."""
+    payout_url = f"https://payout-links.razorpay.com/v1/payout-links/{payout_link_id}/view/#/"
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT ticket_id FROM cases WHERE customer_mobile = ? AND state = 'detected'",
+            (mobile,),
+        ).fetchone()
+        if not row:
+            return {"matched": False, "mobile": mobile}
+        tid = row["ticket_id"]
+    # Use existing advance_state to handle the transition
+    ok = advance_state(tid, "customer_refunded")
+    if ok:
+        with get_conn() as conn:
+            conn.execute(
+                "UPDATE cases SET refund_payout_link = ?, updated_at = ? WHERE ticket_id = ?",
+                (payout_url, now_ist(), tid),
+            )
+    return {"matched": True, "mobile": mobile, "ticket_id": tid, "payout_link": payout_url}
+
+
+def mark_penalty_by_upload(partner_id: str) -> dict:
+    """Find cases by partner in 'customer_comms' state, advance to 'partner_penalty'.
+    Returns match result dict."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT ticket_id FROM cases WHERE current_partner_account_id = ? AND state = 'customer_comms'",
+            (partner_id,),
+        ).fetchall()
+        if not rows:
+            return {"matched": False, "partner_id": partner_id}
+    advanced = []
+    for row in rows:
+        tid = row["ticket_id"]
+        ok = advance_state(tid, "partner_penalty")
+        if ok:
+            advanced.append(tid)
+    return {"matched": len(advanced) > 0, "partner_id": partner_id, "ticket_ids": advanced, "count": len(advanced)}
 
 
 def get_all_cases(state=None, zone=None, search=None) -> list:
@@ -334,7 +376,7 @@ def get_case(ticket_id: str):
 
 def get_summary() -> dict:
     with get_conn() as conn:
-        states = ["detected", "customer_refunded", "partner_penalty", "customer_comms", "partner_comms"]
+        states = ["detected", "customer_refunded", "customer_comms", "partner_penalty"]
         by_state = {}
         for s in states:
             count = conn.execute("SELECT COUNT(*) FROM cases WHERE state=?", (s,)).fetchone()[0]

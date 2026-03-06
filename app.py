@@ -306,11 +306,20 @@ def dl_refund():
                     headers={"Content-Disposition": "attachment; filename=refund_cases.csv"})
 
 
+@app.route("/api/csv/refund", methods=["POST"])
+def csv_refund():
+    tids  = (request.json or {}).get("ticket_ids", [])
+    cases = ([db.get_case(t) for t in tids] if tids
+             else db.get_all_cases(state="detected"))
+    cases = [c for c in cases if c]
+    return jsonify({"csv": actions.generate_refund_csv(cases), "count": len(cases)})
+
+
 @app.route("/api/csv/penalty", methods=["POST"])
 def csv_penalty():
     tids  = (request.json or {}).get("ticket_ids", [])
     cases = ([db.get_case(t) for t in tids] if tids
-             else db.get_all_cases(state="customer_refunded"))
+             else db.get_all_cases(state="customer_comms"))
     cases = [c for c in cases if c]
     return jsonify({"csv": actions.generate_penalty_csv(cases), "count": len(cases)})
 
@@ -326,7 +335,7 @@ def csv_partner_comms_bulk():
 
 @app.route("/api/download/penalty-csv")
 def dl_penalty():
-    cases   = db.get_all_cases(state="customer_refunded")
+    cases   = db.get_all_cases(state="customer_comms")
     csv_str = actions.generate_penalty_csv(cases)
     return Response(csv_str, mimetype="text/csv",
                     headers={"Content-Disposition": "attachment; filename=partner_penalty.csv"})
@@ -338,6 +347,91 @@ def dl_partner_comms():
     csv_str = actions.generate_partner_comms_csv(cases)
     return Response(csv_str, mimetype="text/csv",
                     headers={"Content-Disposition": "attachment; filename=partner_comms.csv"})
+
+
+# ── Refund Upload ────────────────────────────────────────────────────────────
+
+@app.route("/api/upload/refund-status", methods=["POST"])
+def upload_refund_status():
+    import csv
+    import io
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "No file uploaded"}), 400
+    try:
+        text = f.read().decode("utf-8-sig")
+    except Exception:
+        return jsonify({"error": "Could not read file as UTF-8"}), 400
+    reader = csv.DictReader(io.StringIO(text))
+    matched = []
+    unmatched = []
+    for row in reader:
+        phone = (row.get("Contact Phone Number") or "").strip()
+        payout_id = (row.get("Payout Link ID") or "").strip()
+        if not phone or not payout_id:
+            continue
+        # Normalize: strip leading +91 or 91 prefix to get 10-digit number
+        clean = phone.lstrip("+")
+        if clean.startswith("91") and len(clean) > 10:
+            clean = clean[2:]
+        result = db.mark_refunded_by_mobile(clean, payout_id)
+        if result["matched"]:
+            matched.append(result)
+        else:
+            # Also try with original phone value
+            if clean != phone:
+                result2 = db.mark_refunded_by_mobile(phone, payout_id)
+                if result2["matched"]:
+                    matched.append(result2)
+                    continue
+            unmatched.append({"mobile": phone, "payout_link_id": payout_id})
+    return jsonify({
+        "ok": True,
+        "matched_count": len(matched),
+        "unmatched_count": len(unmatched),
+        "matched": matched,
+        "unmatched": unmatched,
+    })
+
+
+@app.route("/api/upload/penalty-status", methods=["POST"])
+def upload_penalty_status():
+    import csv
+    import io
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "No file uploaded"}), 400
+    try:
+        text = f.read().decode("utf-8-sig")
+    except Exception:
+        return jsonify({"error": "Could not read file as UTF-8"}), 400
+    reader = csv.DictReader(io.StringIO(text))
+    matched = []
+    unmatched = []
+    for row in reader:
+        partner_id = (row.get("Partner Id") or "").strip()
+        if not partner_id:
+            continue
+        result = db.mark_penalty_by_upload(partner_id)
+        if result["matched"]:
+            matched.append(result)
+        else:
+            unmatched.append({"partner_id": partner_id})
+    return jsonify({
+        "ok": True,
+        "matched_count": len(matched),
+        "unmatched_count": len(unmatched),
+        "matched": matched,
+        "unmatched": unmatched,
+    })
+
+
+@app.route("/api/cases/<ticket_id>/confirm-comms", methods=["POST"])
+def confirm_comms(ticket_id):
+    ok = db.advance_state(ticket_id, "customer_comms")
+    if ok:
+        return jsonify({"ok": True, "case": db.get_case(ticket_id)})
+    return jsonify({"error": "Cannot confirm comms for this case"}), 400
 
 
 # ── Breach 1 (Disintermediation) ──────────────────────────────────────────────
