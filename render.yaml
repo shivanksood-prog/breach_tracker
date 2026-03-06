@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: breach-tracker
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --worker-class gevent --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: DB_PATH
+        value: /data/breach_tracker.db
+      - key: DATA_DIR
+        value: /data
+      - key: PYTHON_VERSION
+        value: 3.12.3
+    disk:
+      name: breach-data
+      mountPath: /data
+      sizeGB: 1

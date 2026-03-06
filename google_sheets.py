@@ -1,5 +1,7 @@
 """Google Sheets integration for reading disintermediation cases and partner emails."""
 
+import json
+import os
 from pathlib import Path
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -16,9 +18,13 @@ SCOPES_READWRITE = ["https://www.googleapis.com/auth/spreadsheets"]
 
 def _get_service(readonly=True):
     scopes = SCOPES_READONLY if readonly else SCOPES_READWRITE
-    creds = service_account.Credentials.from_service_account_file(
-        str(SA_FILE), scopes=scopes,
-    )
+    # Support loading service account from env var (for cloud deployment)
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if sa_json:
+        info = json.loads(sa_json)
+        creds = service_account.Credentials.from_service_account_info(info, scopes=scopes)
+    else:
+        creds = service_account.Credentials.from_service_account_file(str(SA_FILE), scopes=scopes)
     return build("sheets", "v4", credentials=creds)
 
 
