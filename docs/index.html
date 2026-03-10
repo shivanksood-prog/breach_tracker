@@ -216,7 +216,7 @@
 <div id="tab-breach2" class="tab-panel active">
 
   <!-- Config bar (shown if no API URL) -->
-  <div class="config-bar" id="configBar">
+  <div class="config-bar" id="configBar" style="display:none">
     <span style="font-weight:700">Setup:</span>
     <input type="text" id="cfgScriptUrl" placeholder="Paste your Render API URL here (e.g. https://breach-tracker.onrender.com)"/>
     <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save</button>
@@ -391,7 +391,7 @@ const B1_SHEET_ID = '1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ';
 const B4_SHEET_ID = '1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc';
 const B4_TAB = 'FP4 : Router Misuse';
 
-function getApiUrl() { return localStorage.getItem('BT_API_URL') || ''; }
+function getApiUrl() { return localStorage.getItem('BT_API_URL') || 'https://breach-tracker.onrender.com'; }
 function saveConfig() {
   const url = document.getElementById('cfgScriptUrl').value.trim().replace(/\/+$/, '');
   if (!url) { toast('Enter the API URL (Render)', 'error'); return; }
