@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WIOM — Breach Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --pink: #E8235A; --pink-dark: #C01847; --pink-light: #FDE8EF; --pink-mid: #F9B8CE;
+      --white: #FFFFFF; --bg: #F7F7F8; --card: #FFFFFF; --border: #EBEBEB;
+      --text: #1A1A1A; --text-2: #555; --text-3: #888;
+      --success: #10B981; --warning: #F59E0B; --info: #3B82F6; --purple: #8B5CF6; --slate: #64748B;
+      --orange: #F97316;
+      --radius: 10px;
+      --shadow: 0 1px 4px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+    }
+    html, body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+    /* Auth gate */
+    #authGate { position: fixed; inset: 0; z-index: 9999; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); display: flex; align-items: center; justify-content: center; }
+    .auth-card { background: white; border-radius: 16px; padding: 40px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,.3); text-align: center; }
+    .auth-card .logo-icon { width: 48px; height: 48px; background: var(--pink); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 22px; margin-bottom: 16px; }
+    .auth-card h2 { font-size: 18px; margin-bottom: 4px; }
+    .auth-card p { font-size: 13px; color: var(--text-3); margin-bottom: 24px; }
+    .auth-card input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 14px; margin-bottom: 12px; outline: none; }
+    .auth-card input:focus { border-color: var(--pink); }
+    .auth-card button { width: 100%; padding: 11px; background: var(--pink); color: white; border: none; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .auth-card button:hover { background: var(--pink-dark); }
+    .auth-err { color: #EF4444; font-size: 12px; font-weight: 600; margin-bottom: 8px; display: none; }
+
+    /* Header */
+    header { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 200; }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 32px; height: 32px; background: var(--pink); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 15px; }
+    .logo-text { font-weight: 700; font-size: 15px; }
+    .logo-badge { background: var(--pink-light); color: var(--pink); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .refresh-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 3px; animation: blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+
+    /* Nav */
+    nav { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; }
+    .nav-tab { padding: 12px 18px; cursor: pointer; font-weight: 500; font-size: 13px; color: var(--text-2); border-bottom: 2px solid transparent; user-select: none; display: flex; align-items: center; gap: 6px; }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active { color: var(--pink); border-bottom-color: var(--pink); font-weight: 600; }
+    .nav-badge { background: var(--purple); color: white; border-radius: 10px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
+    .nav-badge.orange { background: var(--orange); }
+
+    /* Layout */
+    main { max-width: 1500px; margin: 0 auto; padding: 20px 24px; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px; border-radius: 7px; border: none; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: var(--pink); color: white; }
+    .btn-primary:hover:not(:disabled) { background: var(--pink-dark); }
+    .btn-outline { background: white; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:hover:not(:disabled) { border-color: var(--pink); color: var(--pink); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover:not(:disabled) { background: #059669; }
+    .btn-info { background: var(--info); color: white; }
+    .btn-info:hover:not(:disabled) { background: #2563EB; }
+    .btn-purple { background: var(--purple); color: white; }
+    .btn-orange { background: var(--orange); color: white; }
+    .btn-sm { padding: 6px 11px; font-size: 12px; }
+    .btn-xs { padding: 4px 8px; font-size: 11px; font-weight: 600; border-radius: 5px; }
+
+    /* KPI Cards */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+    .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); margin-bottom: 5px; }
+    .kpi-value { font-size: 26px; font-weight: 700; line-height: 1; }
+    .kpi-sub { font-size: 10px; color: var(--text-3); margin-top: 3px; }
+    .kpi-card.pink .kpi-value { color: var(--pink); }
+    .kpi-card.warn .kpi-value { color: var(--warning); }
+    .kpi-card.ok   .kpi-value { color: var(--success); }
+    .kpi-card.blue .kpi-value { color: var(--info); }
+    .kpi-card.pur  .kpi-value { color: var(--purple); }
+    .kpi-card.gray .kpi-value { color: var(--slate); }
+    .kpi-card.org  .kpi-value { color: var(--orange); }
+
+    /* Action bar */
+    .action-bar { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; box-shadow: var(--shadow); }
+    .action-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-3); margin-right: 4px; }
+    .spacer { flex: 1; }
+
+    /* Filter bar */
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .filter-bar select, .filter-bar input { height: 34px; padding: 0 10px; border: 1.5px solid var(--border); border-radius: 7px; font-family: inherit; font-size: 13px; background: var(--card); outline: none; }
+    .filter-bar select:focus, .filter-bar input:focus { border-color: var(--pink); }
+    .filter-bar input[type=search] { width: 220px; }
+
+    /* Section divider */
+    .section-div { display: flex; align-items: center; gap: 10px; margin: 20px 0 10px; }
+    .section-div h3 { font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .section-div::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .scnt { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
+    .scnt.i { background: #DBEAFE; color: #1E40AF; }
+    .scnt.o { background: #F1F5F9; color: #334155; }
+
+    /* Table */
+    .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: #FAFAFA; }
+    th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th.check-col, td.check-col { width: 36px; text-align: center; }
+    td { padding: 10px 12px; border-bottom: 1px solid #F4F4F5; font-size: 13px; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--pink); cursor: pointer; }
+
+    /* Day header row */
+    .day-header td { background: #F4F4F5 !important; padding: 7px 12px !important; cursor: pointer; border-bottom: 1px solid var(--border) !important; }
+    .day-header:hover td { background: #EEEEF0 !important; }
+    .day-header-inner { display: flex; align-items: center; gap: 10px; }
+    .day-label { font-size: 12px; font-weight: 700; color: var(--text); }
+    .day-meta { font-size: 11px; color: var(--text-3); }
+    .day-amt { font-size: 11px; font-weight: 700; color: var(--pink); }
+    .day-chevron { font-size: 10px; transition: transform .2s; display: inline-block; }
+    .day-chevron.closed { transform: rotate(-90deg); }
+
+    /* State badges */
+    .state-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; width: fit-content; letter-spacing: .2px; }
+    .state-badge.big { padding: 6px 14px; font-size: 13px; }
+    .state-detected          { background: #FEF3C7; color: #92400E; border: 1.5px solid #FDE68A; }
+    .state-customer_refunded { background: #D1FAE5; color: #065F46; border: 1.5px solid #6EE7B7; }
+    .state-customer_comms    { background: #EDE9FE; color: #5B21B6; border: 1.5px solid #C4B5FD; }
+    .state-partner_penalty   { background: #DBEAFE; color: #1E40AF; border: 1.5px solid #93C5FD; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    /* Detail panel */
+    .detail-row td { background: var(--pink-light) !important; padding: 0 !important; }
+    .detail-inner { padding: 18px 20px; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 10px; margin-bottom: 14px; }
+    .df { background: white; border-radius: 8px; padding: 10px 12px; border: 1px solid var(--border); }
+    .df .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--text-3); margin-bottom: 3px; }
+    .df .val { font-size: 13px; font-weight: 500; }
+    .df .val.big { font-size: 20px; font-weight: 700; color: var(--pink); }
+    .timeline { display: flex; flex-direction: column; gap: 7px; }
+    .tl-item { display: flex; gap: 10px; align-items: flex-start; }
+    .tl-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+    .tl-dot.done { background: var(--success); }
+    .tl-dot.now  { background: var(--pink); box-shadow: 0 0 0 3px var(--pink-light); }
+    .tl-dot.pend { background: var(--border); }
+    .tl-text { font-size: 12px; }
+    .tl-text .step { font-weight: 600; }
+    .tl-text .ts { color: var(--text-3); }
+    .pill { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .pill-yes { background: #D1FAE5; color: #065F46; }
+    .pill-no  { background: #FEE2E2; color: #991B1B; }
+
+    /* Floating selection bar */
+    #selBar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: white; padding: 12px 20px; border-radius: 12px; display: none; align-items: center; gap: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.25); z-index: 999; font-size: 13px; font-weight: 500; }
+    #selBar .sel-count { color: #A3E635; font-weight: 700; }
+    #selBar .btn { font-size: 12px; padding: 6px 12px; }
+
+    /* Toast */
+    .empty-state { text-align: center; padding: 32px; color: var(--text-3); }
+    .loading-state { text-align: center; padding: 24px; color: var(--text-3); }
+    #toast { position: fixed; bottom: 72px; right: 20px; z-index: 1000; background: var(--text); color: white; padding: 11px 18px; border-radius: 9px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,.2); opacity: 0; transform: translateY(8px); transition: all .25s; pointer-events: none; max-width: 340px; }
+    #toast.show { opacity: 1; transform: none; }
+    #toast.success { background: var(--success); }
+    #toast.error   { background: #EF4444; }
+
+    /* Config bar */
+    .config-bar { background: #FEF3C7; border: 1.5px solid #FDE68A; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+    .config-bar input { flex: 1; min-width: 300px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 7px; font-family: inherit; font-size: 13px; }
+    .config-bar input:focus { border-color: var(--pink); outline: none; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ AUTH GATE ═══════════ -->
+<div id="authGate">
+  <div class="auth-card">
+    <div class="logo-icon">W</div>
+    <h2>WIOM Breach Tracker</h2>
+    <p>Enter credentials to continue</p>
+    <div class="auth-err" id="authErr">Incorrect username or password</div>
+    <input type="text" id="authUser" placeholder="Username" autocomplete="username"/>
+    <input type="password" id="authPass" placeholder="Password" autocomplete="current-password"/>
+    <button onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<!-- ═══════════ MAIN APP ═══════════ -->
+<div id="app" style="display:none">
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">W</div>
+    <span class="logo-text">WIOM</span>
+    <span class="logo-badge">Breach Tracker</span>
+  </div>
+  <div class="header-right">
+    <span><span class="refresh-dot"></span><span style="font-size:12px;color:var(--success)">Auto-refresh</span></span>
+    <span id="lastSync" style="font-size:12px;color:var(--text-3)"></span>
+    <button class="btn btn-outline btn-sm" onclick="location.reload()">Refresh</button>
+    <button class="btn btn-outline btn-sm" style="color:#EF4444;border-color:#FCA5A5" onclick="doLogout()">Logout</button>
+  </div>
+</header>
+
+<nav>
+  <div class="nav-tab active" onclick="switchTab('breach2')">Breach 2 — Extra Cash <span class="nav-badge" id="b2-badge" style="display:none"></span></div>
+  <div class="nav-tab" onclick="switchTab('breach1')">Breach 1 — Disintermediation</div>
+  <div class="nav-tab" onclick="switchTab('breach4')">Breach 4 — Router Misuse</div>
+</nav>
+
+<main>
+
+<!-- ═══════════ BREACH 2 ═══════════ -->
+<div id="tab-breach2" class="tab-panel active">
+
+  <!-- Config bar (shown if no Apps Script URL) -->
+  <div class="config-bar" id="configBar">
+    <span style="font-weight:700">Setup:</span>
+    <input type="text" id="cfgScriptUrl" placeholder="Paste your Google Apps Script Web App URL here..."/>
+    <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save</button>
+    <span style="font-size:11px;color:var(--text-3)">Deploy apps-script.gs and paste the URL</span>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="k-total">--</div><div class="kpi-sub">All time</div></div>
+    <div class="kpi-card warn"><div class="kpi-label">Detected</div><div class="kpi-value" id="k-detected">--</div><div class="kpi-sub">Awaiting refund</div></div>
+    <div class="kpi-card ok"><div class="kpi-label">Refunded</div><div class="kpi-value" id="k-refunded">--</div><div class="kpi-sub">Awaiting comms</div></div>
+    <div class="kpi-card pur"><div class="kpi-label">Comms Done</div><div class="kpi-value" id="k-ccomms">--</div><div class="kpi-sub">Awaiting penalty</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Penalty Done</div><div class="kpi-value" id="k-penalty">--</div><div class="kpi-sub">Complete</div></div>
+    <div class="kpi-card pink"><div class="kpi-label">Total Amount</div><div class="kpi-value" id="k-amount">--</div><div class="kpi-sub">Extra cash taken</div></div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <span class="action-label">Refund</span>
+    <button class="btn btn-outline btn-sm" onclick="dlBulk('refund')">Download Refund CSV</button>
+    <input type="file" id="refundUploadInput" accept=".csv" style="display:none" onchange="handleRefundUpload(this)"/>
+    <button class="btn btn-success btn-sm" onclick="document.getElementById('refundUploadInput').click()">Upload Refund Result</button>
+    <span class="action-label" style="margin-left:12px">Penalty</span>
+    <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">Download Penalty CSV</button>
+    <input type="file" id="penaltyUploadInput" accept=".csv" style="display:none" onchange="handlePenaltyUpload(this)"/>
+    <button class="btn btn-info btn-sm" onclick="document.getElementById('penaltyUploadInput').click()">Upload Penalty Result</button>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <select id="fState" onchange="loadCases()">
+      <option value="all">All States</option>
+      <option value="detected">Detected</option>
+      <option value="customer_refunded">Refunded — Awaiting Comms</option>
+      <option value="customer_comms">Comms Done — Awaiting Penalty</option>
+      <option value="partner_penalty">Penalty Done</option>
+    </select>
+    <select id="fZone" onchange="loadCases()"><option value="all">All Zones</option></select>
+    <input type="search" id="fSearch" placeholder="Search ticket, mobile, partner..." oninput="loadCases()"/>
+    <span id="fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
+  </div>
+
+  <!-- Install Cases -->
+  <div class="section-div"><h3>Install Cases</h3><span class="scnt i" id="ic">0</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th class="check-col"><input type="checkbox" id="chk-install-all" onchange="selectAll('install',this.checked)"/></th>
+        <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+        <th>Amount</th><th>Emp Role</th><th>Technician</th><th>State</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="installBody"><tr><td colspan="11" class="loading-state">Loading...</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Other Cases -->
+  <div class="section-div" style="margin-top:24px"><h3>Other Cases</h3><span class="scnt o" id="oc">0</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th class="check-col"><input type="checkbox" id="chk-other-all" onchange="selectAll('other',this.checked)"/></th>
+        <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+        <th>Amount</th><th>State</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="otherBody"><tr><td colspan="9" class="loading-state">Loading...</td></tr></tbody>
+    </table>
+  </div>
+
+</div><!-- /breach2 -->
+
+<!-- ═══════════ BREACH 1 (read-only from Google Sheet) ═══════════ -->
+<div id="tab-breach1" class="tab-panel">
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b1k-total">--</div></div>
+    <div class="kpi-card org"><div class="kpi-label">Partners</div><div class="kpi-value" id="b1k-partners">--</div></div>
+  </div>
+  <div class="action-bar">
+    <span class="action-label">Breach 1 — Disintermediation</span>
+    <button class="btn btn-outline btn-sm" onclick="loadB1()">Refresh from Sheet</button>
+    <div class="spacer"></div>
+    <span style="font-size:11px;color:var(--text-3)">Read-only from Google Sheet</span>
+  </div>
+  <div class="filter-bar">
+    <input type="search" id="b1Search" placeholder="Search partner, mobile..." oninput="renderB1()"/>
+    <span id="b1Count" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Partner</th><th>Customer Mobile</th><th>Expiry Date</th><th>Zone</th><th>City</th><th>Tenure</th><th>Risk Score</th><th>Status</th><th>Disintermediation</th></tr></thead>
+      <tbody id="b1Body"><tr><td colspan="9" class="loading-state">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div><!-- /breach1 -->
+
+<!-- ═══════════ BREACH 4 (read-only from Google Sheet) ═══════════ -->
+<div id="tab-breach4" class="tab-panel">
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b4k-total">--</div></div>
+    <div class="kpi-card org"><div class="kpi-label">Partners</div><div class="kpi-value" id="b4k-partners">--</div></div>
+  </div>
+  <div class="action-bar">
+    <span class="action-label">Breach 4 — Router Misuse</span>
+    <button class="btn btn-outline btn-sm" onclick="loadB4()">Refresh from Sheet</button>
+    <div class="spacer"></div>
+    <span style="font-size:11px;color:var(--text-3)">Read-only from Google Sheet</span>
+  </div>
+  <div class="filter-bar">
+    <input type="search" id="b4Search" placeholder="Search partner, device..." oninput="renderB4()"/>
+    <span id="b4Count" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Partner</th><th>Device ID</th><th>Customer</th><th>Date Reported</th><th>Channel</th><th>Penalty</th><th>Penalty Done</th></tr></thead>
+      <tbody id="b4Body"><tr><td colspan="7" class="loading-state">Loading...</td></tr></tbody>
+    </table>
+  </div>
+</div><!-- /breach4 -->
+
+</main>
+
+<!-- Floating selection bar -->
+<div id="selBar">
+  <span>Selected: <span class="sel-count" id="selCount">0</span></span>
+  <button class="btn btn-outline btn-sm" onclick="dlBulk('refund')">Refund CSV</button>
+  <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">Penalty CSV</button>
+  <button class="btn btn-success btn-sm" onclick="bulkConfirmComms()">Confirm Comms Done</button>
+  <button class="btn btn-outline btn-sm" onclick="clearSelection()">Clear</button>
+</div>
+
+<div id="toast"></div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════════════════════
+const AUTH_USER = 'wiom';
+const AUTH_PASS = 'wiom2026';
+
+// These sheet IDs must be "Published to web" or shared as "Anyone with the link"
+const B1_SHEET_ID = '1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ';
+const B4_SHEET_ID = '1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc';
+const B4_TAB = 'FP4 : Router Misuse';
+
+function getScriptUrl() { return localStorage.getItem('BT_SCRIPT_URL') || ''; }
+function saveConfig() {
+  const url = document.getElementById('cfgScriptUrl').value.trim();
+  if (!url) { toast('Enter the Apps Script URL', 'error'); return; }
+  localStorage.setItem('BT_SCRIPT_URL', url);
+  document.getElementById('configBar').style.display = 'none';
+  toast('Saved! Loading data...', 'success');
+  loadAll();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════════════════════
+function doLogin() {
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value;
+  if (u === AUTH_USER && p === AUTH_PASS) {
+    sessionStorage.setItem('bt_auth', '1');
+    showApp();
+  } else {
+    document.getElementById('authErr').style.display = 'block';
+  }
+}
+function doLogout() {
+  sessionStorage.removeItem('bt_auth');
+  location.reload();
+}
+function showApp() {
+  document.getElementById('authGate').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  const url = getScriptUrl();
+  if (url) {
+    document.getElementById('configBar').style.display = 'none';
+    document.getElementById('cfgScriptUrl').value = url;
+  }
+  loadAll();
+}
+// Check auth on load
+document.getElementById('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+if (sessionStorage.getItem('bt_auth') === '1') showApp();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════════════════════
+let _tTimer;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(_tTimer);
+  _tTimer = setTimeout(() => el.className = '', 3500);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// APPS SCRIPT API (Breach 2)
+// ═══════════════════════════════════════════════════════════════════════════════
+async function gsGet(action, params={}) {
+  const url = getScriptUrl();
+  if (!url) return null;
+  const qs = new URLSearchParams({action, ...params}).toString();
+  try {
+    const r = await fetch(url + '?' + qs, {redirect:'follow'});
+    return await r.json();
+  } catch(e) { toast('API error: ' + e.message, 'error'); return null; }
+}
+
+async function gsPost(data) {
+  const url = getScriptUrl();
+  if (!url) return null;
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: JSON.stringify(data),
+      redirect: 'follow',
+    });
+    return await r.json();
+  } catch(e) { toast('API error: ' + e.message, 'error'); return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GOOGLE VISUALIZATION API (read-only Breach 1 & 4)
+// ═══════════════════════════════════════════════════════════════════════════════
+async function fetchSheet(sheetId, tabName, range) {
+  const tab = tabName ? `&sheet=${encodeURIComponent(tabName)}` : '';
+  const rng = range ? `&range=${encodeURIComponent(range)}` : '';
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json${tab}${rng}`;
+  try {
+    const r = await fetch(url);
+    const text = await r.text();
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);?/)[1]);
+    const cols = json.table.cols.map(c => c.label || c.id);
+    return json.table.rows.map(row => {
+      const obj = {};
+      row.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v ?? '') : ''; });
+      return obj;
+    });
+  } catch(e) { console.error('Sheet fetch error:', e); return []; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════════════════════
+let currentTab = 'breach2';
+function switchTab(t) {
+  currentTab = t;
+  ['breach2','breach1','breach4'].forEach((n,i) => {
+    document.getElementById('tab-'+n).classList.toggle('active', n===t);
+    document.querySelectorAll('.nav-tab')[i].classList.toggle('active', n===t);
+  });
+  if (t==='breach1') loadB1();
+  if (t==='breach4') loadB4();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BREACH 2
+// ═══════════════════════════════════════════════════════════════════════════════
+let cases = [];
+let selectedCases = new Set();
+
+const STATE_LABELS = {detected:'Detected',customer_refunded:'Refunded',customer_comms:'Comms Done',partner_penalty:'Penalty Done'};
+function stateBadge(s) { return `<span class="state-badge big state-${s}"><span class="dot"></span>${STATE_LABELS[s]||s}</span>`; }
+
+async function loadSummary() {
+  const s = await gsGet('getSummary');
+  if (!s) return;
+  document.getElementById('k-total').textContent    = s.total ?? '--';
+  document.getElementById('k-detected').textContent = s.by_state?.detected ?? '--';
+  document.getElementById('k-refunded').textContent = s.by_state?.customer_refunded ?? '--';
+  document.getElementById('k-ccomms').textContent   = s.by_state?.customer_comms ?? '--';
+  document.getElementById('k-penalty').textContent  = s.by_state?.partner_penalty ?? '--';
+  document.getElementById('k-amount').textContent   = s.total_amount ? '\u20B9'+Number(s.total_amount).toLocaleString('en-IN') : '--';
+  const det = s.by_state?.detected ?? 0;
+  const nb = document.getElementById('b2-badge');
+  nb.style.display = det > 0 ? 'inline' : 'none';
+  nb.textContent = det;
+}
+
+async function loadZones() {
+  const zones = await gsGet('getZones');
+  if (!zones) return;
+  const sel = document.getElementById('fZone');
+  sel.innerHTML = '<option value="all">All Zones</option>';
+  zones.forEach(z => { const o = document.createElement('option'); o.value=z; o.textContent=z; sel.appendChild(o); });
+}
+
+async function loadCases() {
+  const state  = document.getElementById('fState').value;
+  const zone   = document.getElementById('fZone').value;
+  const search = document.getElementById('fSearch').value.trim();
+  const data = await gsGet('getCases', {state, zone, search});
+  if (!data) return;
+  cases = data;
+  renderCases(cases);
+}
+
+async function refreshAll() { await Promise.all([loadSummary(), loadCases()]); }
+
+function groupByDay(arr) {
+  const g = {};
+  arr.forEach(c => {
+    const d = String(c.ticket_added_time_ist || c.detected_at || '').slice(0,10) || 'Unknown';
+    if (!g[d]) g[d] = [];
+    g[d].push(c);
+  });
+  return Object.entries(g).sort(([a],[b]) => b.localeCompare(a));
+}
+
+function fmtDate(d) {
+  if (!d || d==='Unknown') return 'Unknown Date';
+  try { return new Date(d+'T00:00:00+05:30').toLocaleDateString('en-IN', {weekday:'short', day:'numeric', month:'short', year:'numeric'}); }
+  catch { return d; }
+}
+
+function renderCases(data) {
+  const install = data.filter(c => String(c.new_install_flag)==='1');
+  const other   = data.filter(c => String(c.new_install_flag)!=='1');
+  document.getElementById('fCount').textContent  = data.length+' case(s)';
+  document.getElementById('ic').textContent = install.length;
+  document.getElementById('oc').textContent = other.length;
+  document.getElementById('installBody').innerHTML = renderSection(install, 'install', 11);
+  document.getElementById('otherBody').innerHTML   = renderSection(other, 'other', 9);
+}
+
+function renderSection(arr, section, colspan) {
+  if (!arr.length) return `<tr><td colspan="${colspan}"><div class="empty-state">No cases</div></td></tr>`;
+  const groups = groupByDay(arr);
+  return groups.map(([date, items]) => {
+    const total = items.reduce((s,c) => s+(c.extra_amount||0), 0);
+    const dayKey = section+'-'+date.replace(/-/g,'');
+    const hdr = `<tr class="day-header" onclick="toggleDay('${dayKey}')">
+      <td colspan="${colspan}"><div class="day-header-inner">
+        <span class="day-chevron" id="dch-${dayKey}">&#9660;</span>
+        <span class="day-label">${fmtDate(date)}</span>
+        <span class="day-meta">${items.length} case(s)</span>
+        ${total ? `<span class="day-amt">\u20B9${total.toLocaleString('en-IN')}</span>` : ''}
+      </div></td></tr>`;
+    return hdr + items.map(c => section==='install' ? caseRowInstall(c, dayKey) : caseRowOther(c, dayKey)).join('');
+  }).join('');
+}
+
+function toggleDay(key) {
+  const rows = document.querySelectorAll('.dg-'+key);
+  const ch = document.getElementById('dch-'+key);
+  const hidden = rows[0]?.style.display === 'none';
+  rows.forEach(r => r.style.display = hidden ? '' : 'none');
+  if (ch) ch.classList.toggle('closed', !hidden);
+}
+
+function amtHtml(c) {
+  const tip = c.voluntary_tip==='Yes' ? ' <span class="pill pill-yes">Vol</span>' : c.voluntary_tip==='No' ? ' <span class="pill pill-no">Forced</span>' : '';
+  return c.extra_amount ? `<strong style="color:var(--pink)">\u20B9${c.extra_amount}</strong>${tip}` : '<span style="color:var(--text-3)">--</span>';
+}
+
+function quickActions(c) {
+  let btns = '';
+  if (c.state === 'customer_refunded') {
+    const link = c.refund_payout_link ? `<a href="${c.refund_payout_link}" target="_blank" class="btn btn-outline btn-xs" onclick="event.stopPropagation()" style="color:var(--pink)">Payout</a>` : '';
+    btns += `${link}<button class="btn btn-success btn-xs" onclick="confirmCommsInline('${c.ticket_id}',event)">Comms Done</button>`;
+  } else if (c.state === 'partner_penalty') {
+    btns += `<span style="font-size:11px;color:var(--success);font-weight:700">Complete</span>`;
+  }
+  const undoBtn = c.previous_state ? `<button class="btn btn-outline btn-xs" style="color:#EF4444;border-color:#FCA5A5" onclick="undoInline('${c.ticket_id}',event)">Undo</button>` : '';
+  return `<div style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap">
+    ${btns}${undoBtn}
+    <button class="btn btn-outline btn-xs" onclick="toggleDetail('${c.ticket_id}',event)">&#9660;</button>
+  </div>`;
+}
+
+function caseRowInstall(c, dayKey) {
+  const dt = String(c.ticket_added_time_ist||'').slice(0,10)||'--';
+  const tech = c.technician_name || c.install_name || '--';
+  const role = c.install_emp_role || '--';
+  const tid = c.ticket_id;
+  return `<tr class="dg-${dayKey}" data-tid="${tid}" data-section="install">
+    <td class="check-col" onclick="event.stopPropagation()"><input type="checkbox" class="row-chk" value="${tid}" ${selectedCases.has(tid)?'checked':''} onchange="handleChk(this)"/></td>
+    <td style="font-size:12px;white-space:nowrap">${dt}</td>
+    <td><code style="font-size:11px">${String(tid).slice(-8)}</code></td>
+    <td>${c.customer_mobile||'--'}</td>
+    <td style="max-width:130px">${c.current_partner_name||'--'}</td>
+    <td style="max-width:120px;font-size:12px">${c.zone||'--'}</td>
+    <td>${amtHtml(c)}</td>
+    <td style="font-size:11px;color:var(--text-3)">${role}</td>
+    <td><strong style="font-size:12px">${tech}</strong></td>
+    <td>${stateBadge(c.state)}</td>
+    <td onclick="event.stopPropagation()">${quickActions(c)}</td>
+  </tr>
+  <tr class="dg-${dayKey} detail-row" id="detail-${tid}" style="display:none">
+    <td colspan="11"><div class="detail-inner" id="di-${tid}">Loading...</div></td>
+  </tr>`;
+}
+
+function caseRowOther(c, dayKey) {
+  const dt = String(c.ticket_added_time_ist||'').slice(0,10)||'--';
+  const tid = c.ticket_id;
+  return `<tr class="dg-${dayKey}" data-tid="${tid}" data-section="other">
+    <td class="check-col" onclick="event.stopPropagation()"><input type="checkbox" class="row-chk" value="${tid}" ${selectedCases.has(tid)?'checked':''} onchange="handleChk(this)"/></td>
+    <td style="font-size:12px;white-space:nowrap">${dt}</td>
+    <td><code style="font-size:11px">${String(tid).slice(-8)}</code></td>
+    <td>${c.customer_mobile||'--'}</td>
+    <td style="max-width:130px">${c.current_partner_name||'--'}</td>
+    <td style="max-width:120px;font-size:12px">${c.zone||'--'}</td>
+    <td>${amtHtml(c)}</td>
+    <td>${stateBadge(c.state)}</td>
+    <td onclick="event.stopPropagation()">${quickActions(c)}</td>
+  </tr>
+  <tr class="dg-${dayKey} detail-row" id="detail-${tid}" style="display:none">
+    <td colspan="9"><div class="detail-inner" id="di-${tid}">Loading...</div></td>
+  </tr>`;
+}
+
+function toggleDetail(tid, evt) {
+  if (evt) evt.stopPropagation();
+  const row = document.getElementById('detail-'+tid);
+  const inner = document.getElementById('di-'+tid);
+  if (row.style.display === 'none') {
+    row.style.display = '';
+    const c = cases.find(x => String(x.ticket_id) === String(tid));
+    if (c) inner.innerHTML = renderDetail(c);
+  } else { row.style.display = 'none'; }
+}
+
+function renderDetail(c) {
+  const stOrder = ['detected','customer_refunded','customer_comms','partner_penalty'];
+  const stLabels = {detected:'Detected',customer_refunded:'Customer Refunded',customer_comms:'Customer Comms',partner_penalty:'Partner Penalty'};
+  const stTs = {detected:c.detected_at,customer_refunded:c.customer_refunded_at,customer_comms:c.customer_comms_at,partner_penalty:c.partner_penalty_at};
+  const curIdx = stOrder.indexOf(c.state);
+  const timeline = stOrder.map((s,i) => {
+    const dc = i<curIdx?'done':i===curIdx?'now':'pend';
+    const ts = stTs[s] ? ` &middot; <span class="ts">${String(stTs[s]).slice(0,16)}</span>` : '';
+    return `<div class="tl-item"><div class="tl-dot ${dc}"></div><div class="tl-text"><span class="step">${stLabels[s]}</span>${ts}</div></div>`;
+  }).join('');
+
+  return `<div class="detail-grid">
+    <div class="df"><div class="lbl">Extra Amount</div><div class="val big">${c.extra_amount?'\u20B9'+c.extra_amount:'Unknown'}</div></div>
+    <div class="df"><div class="lbl">Voluntary Tip</div><div class="val">${c.voluntary_tip==='Yes'?'<span class="pill pill-yes">Yes</span>':c.voluntary_tip==='No'?'<span class="pill pill-no">No</span>':'--'}</div></div>
+    <div class="df"><div class="lbl">Technician</div><div class="val">${c.technician_name||'--'}</div></div>
+    <div class="df"><div class="lbl">Partner Account ID</div><div class="val">${c.current_partner_account_id||'--'}</div></div>
+    <div class="df"><div class="lbl">Payout Link</div><div class="val">${c.refund_payout_link?'<a href="'+c.refund_payout_link+'" target="_blank" style="color:var(--pink);text-decoration:underline">View Payout</a>':'--'}</div></div>
+  </div>
+  <div style="margin-bottom:10px;font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase">State Timeline</div>
+  <div class="timeline" style="margin-bottom:16px">${timeline}</div>`;
+}
+
+// ── Actions ──────────────────────────────────────────────────────────────────
+
+async function confirmCommsInline(tid, evt) {
+  if (evt) evt.stopPropagation();
+  toast('Confirming...');
+  const r = await gsPost({action:'confirmComms', ticket_id:tid});
+  if (r?.error) { toast(r.error, 'error'); return; }
+  toast('Customer comms confirmed', 'success');
+  await refreshAll();
+}
+
+async function undoInline(tid, evt) {
+  if (evt) evt.stopPropagation();
+  const r = await gsPost({action:'undoState', ticket_id:tid});
+  if (r?.error) { toast(r.error, 'error'); return; }
+  toast('Undone', 'success');
+  await refreshAll();
+}
+
+async function bulkConfirmComms() {
+  const tids = [...selectedCases];
+  if (!tids.length) { toast('No cases selected', 'error'); return; }
+  toast('Confirming comms...');
+  const r = await gsPost({action:'bulkConfirmComms', ticket_ids:tids});
+  if (r?.error) { toast(r.error, 'error'); return; }
+  toast(`Confirmed ${r.count} case(s)`, 'success');
+  clearSelection();
+  await refreshAll();
+}
+
+// ── Selection ────────────────────────────────────────────────────────────────
+
+function handleChk(chk) {
+  if (chk.checked) selectedCases.add(chk.value); else selectedCases.delete(chk.value);
+  updateSelBar();
+}
+function selectAll(section, checked) {
+  document.querySelectorAll('#'+(section==='install'?'install':'other')+'Body .row-chk').forEach(chk => { chk.checked = checked; handleChk(chk); });
+}
+function clearSelection() {
+  selectedCases.clear();
+  document.querySelectorAll('.row-chk').forEach(c => c.checked=false);
+  const ia = document.getElementById('chk-install-all');
+  const oa = document.getElementById('chk-other-all');
+  if (ia) ia.checked = false;
+  if (oa) oa.checked = false;
+  updateSelBar();
+}
+function updateSelBar() {
+  const bar = document.getElementById('selBar');
+  document.getElementById('selCount').textContent = selectedCases.size;
+  bar.style.display = selectedCases.size > 0 ? 'flex' : 'none';
+}
+
+// ── CSV ──────────────────────────────────────────────────────────────────────
+
+function dlBulk(type) {
+  const tids = [...selectedCases];
+  let filtered;
+  if (type === 'refund') {
+    filtered = cases.filter(c => tids.length ? tids.includes(String(c.ticket_id)) : c.state === 'detected');
+  } else {
+    filtered = cases.filter(c => tids.length ? tids.includes(String(c.ticket_id)) : c.state === 'customer_comms');
+  }
+  if (!filtered.length) { toast('No cases to export', 'error'); return; }
+
+  let csv;
+  if (type === 'refund') {
+    csv = 'Name of Contact,Payout Link Amount,Contact Phone Number,Contact Email ID,Send Link to Phone Number,Send Link to Mail ID,Contact Type,Payout Purpose,Payout Description,Reference ID(optional),Internal notes(optional): Title,Internal notes(optional): Description\n';
+    filtered.forEach(c => {
+      const amt = c.extra_amount ? Math.round(c.extra_amount) : 0;
+      csv += `Wiom User,${amt},${c.customer_mobile||''},,No,No,customer,refund,Refund for Extra money taken,${c.ticket_id||''},,\n`;
+    });
+  } else {
+    // Aggregate by partner for penalty
+    const partners = {};
+    filtered.forEach(c => {
+      const pid = c.current_partner_account_id || 'unknown';
+      if (!partners[pid]) partners[pid] = {amount:0, name:c.current_partner_name||''};
+      partners[pid].amount += (c.extra_amount||0);
+    });
+    csv = 'Partner Id,Amount,Remark\n';
+    Object.entries(partners).forEach(([pid,d]) => {
+      csv += `${pid},${-Math.abs(d.amount)},Breach Fundamental Principle 2 (PX2026)\n`;
+    });
+  }
+
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=type+'.csv'; a.click();
+  URL.revokeObjectURL(url);
+  toast(`Downloaded ${filtered.length} case(s)`, 'success');
+}
+
+// ── CSV Upload ───────────────────────────────────────────────────────────────
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line => {
+    const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g,''));
+    const obj = {};
+    headers.forEach((h,i) => obj[h] = vals[i] || '');
+    return obj;
+  });
+}
+
+async function handleRefundUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  toast('Processing refund CSV...');
+  const text = await file.text();
+  const rows = parseCSV(text);
+  const entries = rows.map(r => ({
+    mobile: r['Contact Phone Number'] || '',
+    payout_link_id: r['Payout Link ID'] || '',
+  })).filter(e => e.mobile && e.payout_link_id);
+
+  if (!entries.length) { toast('No valid entries found', 'error'); input.value=''; return; }
+
+  const r = await gsPost({action:'uploadRefundStatus', entries});
+  if (r?.error) { toast(r.error, 'error'); }
+  else { toast(`Refund: ${r.matched_count} matched, ${r.unmatched_count} unmatched`, r.matched_count > 0 ? 'success' : 'error'); }
+  if (r?.matched_count > 0) await refreshAll();
+  input.value = '';
+}
+
+async function handlePenaltyUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  toast('Processing penalty CSV...');
+  const text = await file.text();
+  const rows = parseCSV(text);
+  const entries = rows.map(r => ({partner_id: r['Partner Id'] || ''})).filter(e => e.partner_id);
+
+  if (!entries.length) { toast('No valid entries found', 'error'); input.value=''; return; }
+
+  const r = await gsPost({action:'uploadPenaltyStatus', entries});
+  if (r?.error) { toast(r.error, 'error'); }
+  else { toast(`Penalty: ${r.matched_count} matched, ${r.unmatched_count} unmatched`, r.matched_count > 0 ? 'success' : 'error'); }
+  if (r?.matched_count > 0) await refreshAll();
+  input.value = '';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BREACH 1 (read-only from Google Sheet)
+// ═══════════════════════════════════════════════════════════════════════════════
+let b1Data = [];
+async function loadB1() {
+  b1Data = await fetchSheet(B1_SHEET_ID, 'Sheet1');
+  // Filter to only confirmed disintermediation
+  b1Data = b1Data.filter(c => String(c.Disintermediation || '').trim().toLowerCase() === 'yes');
+  renderB1();
+}
+function renderB1() {
+  const search = (document.getElementById('b1Search')?.value || '').trim().toLowerCase();
+  let filtered = b1Data;
+  if (search) {
+    filtered = filtered.filter(c =>
+      (c.PARTNER_NAME||'').toLowerCase().includes(search) ||
+      (c.MOBILE||'').toLowerCase().includes(search) ||
+      (c.ZONE||'').toLowerCase().includes(search)
+    );
+  }
+  document.getElementById('b1k-total').textContent = filtered.length;
+  document.getElementById('b1k-partners').textContent = new Set(filtered.map(c=>c.PARTNER_NAME)).size;
+  document.getElementById('b1Count').textContent = filtered.length + ' case(s)';
+
+  const body = document.getElementById('b1Body');
+  if (!filtered.length) { body.innerHTML = '<tr><td colspan="9"><div class="empty-state">No cases</div></td></tr>'; return; }
+  body.innerHTML = filtered.map(c => `<tr>
+    <td style="font-size:12px">${c.PARTNER_NAME||'--'}</td>
+    <td>${c.MOBILE||'--'}</td>
+    <td style="font-size:12px">${c.EXPIRY_DT||'--'}</td>
+    <td style="font-size:12px">${c.ZONE||'--'}</td>
+    <td style="font-size:12px">${c.CITY||'--'}</td>
+    <td>${c.TENURE||'--'}</td>
+    <td><strong>${c['Risk score on wallet activity (Dec+Jan) (Scale 0-3)']||'--'}</strong></td>
+    <td><span class="state-badge state-${(c.Status||'').includes('TERM')?'TERMINATION':(c.Status||'').includes('ACTIVE')?'ACTIVE':'TEMPORARY'}"><span class="dot"></span>${c.Status||'--'}</span></td>
+    <td>${c.Disintermediation||'--'}</td>
+  </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BREACH 4 (read-only from Google Sheet)
+// ═══════════════════════════════════════════════════════════════════════════════
+let b4Data = [];
+async function loadB4() {
+  b4Data = await fetchSheet(B4_SHEET_ID, B4_TAB);
+  b4Data = b4Data.filter(c => c['Partner Id'] || c['Partner Name'] || c['Device Id']);
+  renderB4();
+}
+function renderB4() {
+  const search = (document.getElementById('b4Search')?.value || '').trim().toLowerCase();
+  let filtered = b4Data;
+  if (search) {
+    filtered = filtered.filter(c =>
+      (c['Partner Name']||'').toLowerCase().includes(search) ||
+      (c['Device Id']||'').toLowerCase().includes(search) ||
+      (c['Partner Id']||'').toLowerCase().includes(search)
+    );
+  }
+  document.getElementById('b4k-total').textContent = filtered.length;
+  document.getElementById('b4k-partners').textContent = new Set(filtered.map(c=>c['Partner Name'])).size;
+  document.getElementById('b4Count').textContent = filtered.length + ' case(s)';
+
+  const body = document.getElementById('b4Body');
+  if (!filtered.length) { body.innerHTML = '<tr><td colspan="7"><div class="empty-state">No cases</div></td></tr>'; return; }
+  body.innerHTML = filtered.map(c => `<tr>
+    <td style="font-size:12px">${c['Partner Name']||'--'}</td>
+    <td><code style="font-size:11px">${c['Device Id']||'--'}</code></td>
+    <td style="font-size:12px">${c['Customer Details']||'--'}</td>
+    <td style="font-size:12px">${c['Date Reported']||'--'}</td>
+    <td style="font-size:12px">${c['Reporting Channel']||'--'}</td>
+    <td>${c['Penalty Amount']||'--'}</td>
+    <td>${c['Penalty Done']==='Yes'?'<span class="pill pill-yes">Yes</span>':'<span class="pill pill-no">No</span>'}</td>
+  </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════════
+async function loadAll() {
+  if (!getScriptUrl()) return;
+  await Promise.all([loadSummary(), loadCases(), loadZones()]);
+}
+
+// Auto-refresh every 30 seconds
+setInterval(() => {
+  if (sessionStorage.getItem('bt_auth') === '1' && getScriptUrl()) {
+    loadSummary();
+    if (currentTab === 'breach2') loadCases();
+  }
+}, 30000);
+</script>
+</body>
+</html>
