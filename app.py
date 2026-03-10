@@ -1,14 +1,51 @@
 import json
+import os
 import queue
 import threading
+import functools
 from flask import Flask, jsonify, request, render_template, Response, stream_with_context
+from flask_cors import CORS
+
 import db
+import sheets_db
 import config
 import actions
 
 app = Flask(__name__)
+CORS(app)
 db.init_db()
 db._migrate()
+
+# ── Password protection ──────────────────────────────────────────────────────
+APP_USER = os.environ.get("APP_USER", "wiom")
+APP_PASS = os.environ.get("APP_PASS", "wiom2026")
+
+
+def check_auth(username, password):
+    return username == APP_USER and password == APP_PASS
+
+
+def auth_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return Response(
+                "Login required.", 401,
+                {"WWW-Authenticate": 'Basic realm="WIOM Breach Tracker"'},
+            )
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.before_request
+def require_login():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return Response(
+            "Login required.", 401,
+            {"WWW-Authenticate": 'Basic realm="WIOM Breach Tracker"'},
+        )
 
 # ── SSE broadcast hub ─────────────────────────────────────────────────────────
 _sse_clients: list[queue.Queue] = []
@@ -82,8 +119,8 @@ def _run_sync(cfg: dict) -> dict:
         tid = str(row.get("ticket_id", ""))
         if not tid:
             continue
-        existing = db.get_case(tid)
-        db.upsert_case(row)
+        existing = sheets_db.get_case(tid)
+        sheets_db.upsert_case(row)
 
         if existing is None:
             # Enrich new case with Kapture right away
@@ -92,22 +129,22 @@ def _run_sync(cfg: dict) -> dict:
                     raw = kap.fetch_ticket(str(row["kapture_ticket_id"]))
                     if raw:
                         fields = kap.extract_breach_fields(raw)
-                        db.update_kapture_fields(
+                        sheets_db.update_kapture_fields(
                             tid, fields["extra_amount"], fields["technician_name"],
                             fields["voluntary_tip"], json.dumps(raw),
                         )
                 except Exception as e:
                     errors.append({"ticket_id": tid, "error": str(e)})
-            new_cases_list.append(db.get_case(tid))
+            new_cases_list.append(sheets_db.get_case(tid))
         else:
             # Re-fetch Kapture for cases still missing amount
-            case_now = db.get_case(tid)
+            case_now = sheets_db.get_case(tid)
             if case_now and not case_now.get("extra_amount") and row.get("kapture_ticket_id"):
                 try:
                     raw = kap.fetch_ticket(str(row["kapture_ticket_id"]))
                     if raw:
                         fields = kap.extract_breach_fields(raw)
-                        db.update_kapture_fields(
+                        sheets_db.update_kapture_fields(
                             tid, fields["extra_amount"], fields["technician_name"],
                             fields["voluntary_tip"], json.dumps(raw),
                         )
@@ -150,7 +187,7 @@ try:
         webhook = cfg.get("slack_webhook_url", "")
         if not webhook:
             return
-        pending = db.get_all_cases(state="detected")
+        pending = sheets_db.get_all_cases(state="detected")
         if not pending:
             return
         total = sum(c.get("extra_amount") or 0 for c in pending)
@@ -191,23 +228,23 @@ def get_cases():
     state  = request.args.get("state", "all")
     zone   = request.args.get("zone", "all")
     search = request.args.get("search", "").strip() or None
-    cases  = db.get_all_cases(state=state, zone=zone, search=search)
+    cases  = sheets_db.get_all_cases(state=state, zone=zone, search=search)
     return jsonify(cases)
 
 
 @app.route("/api/cases/summary")
 def get_summary():
-    return jsonify(db.get_summary())
+    return jsonify(sheets_db.get_summary())
 
 
 @app.route("/api/cases/zones")
 def get_zones():
-    return jsonify(db.get_all_zones())
+    return jsonify(sheets_db.get_all_zones())
 
 
 @app.route("/api/cases/<ticket_id>")
 def get_case(ticket_id):
-    case = db.get_case(ticket_id)
+    case = sheets_db.get_case(ticket_id)
     if not case:
         return jsonify({"error": "Not found"}), 404
     return jsonify(case)
@@ -232,7 +269,7 @@ def sync():
 @app.route("/api/cases/<ticket_id>/fetch-kapture", methods=["POST"])
 def fetch_kapture_single(ticket_id):
     cfg  = config.load()
-    case = db.get_case(ticket_id)
+    case = sheets_db.get_case(ticket_id)
     if not case:
         return jsonify({"error": "Case not found"}), 404
     kapture_id = case.get("kapture_ticket_id")
@@ -244,11 +281,11 @@ def fetch_kapture_single(ticket_id):
         raw = kap.fetch_ticket(str(kapture_id))
         if raw:
             fields = kap.extract_breach_fields(raw)
-            db.update_kapture_fields(
+            sheets_db.update_kapture_fields(
                 ticket_id, fields["extra_amount"], fields["technician_name"],
                 fields["voluntary_tip"], json.dumps(raw),
             )
-        return jsonify(db.get_case(ticket_id))
+        return jsonify(sheets_db.get_case(ticket_id))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -280,17 +317,17 @@ def advance_case(ticket_id):
     new_state = body.get("state")
     if not new_state:
         return jsonify({"error": "Missing state"}), 400
-    ok = db.advance_state(ticket_id, new_state)
+    ok = sheets_db.advance_state(ticket_id, new_state)
     if ok:
-        return jsonify({"ok": True, "case": db.get_case(ticket_id)})
+        return jsonify({"ok": True, "case": sheets_db.get_case(ticket_id)})
     return jsonify({"error": "Invalid state transition"}), 400
 
 
 @app.route("/api/cases/<ticket_id>/undo", methods=["POST"])
 def undo_case(ticket_id):
-    ok = db.undo_state(ticket_id)
+    ok = sheets_db.undo_state(ticket_id)
     if ok:
-        return jsonify({"ok": True, "case": db.get_case(ticket_id)})
+        return jsonify({"ok": True, "case": sheets_db.get_case(ticket_id)})
     return jsonify({"error": "Nothing to undo"}), 400
 
 
@@ -300,7 +337,7 @@ def undo_case(ticket_id):
 
 @app.route("/api/download/refund-csv")
 def dl_refund():
-    cases   = db.get_all_cases(state="detected")
+    cases   = sheets_db.get_all_cases(state="detected")
     csv_str = actions.generate_refund_csv(cases)
     return Response(csv_str, mimetype="text/csv",
                     headers={"Content-Disposition": "attachment; filename=refund_cases.csv"})
@@ -309,8 +346,8 @@ def dl_refund():
 @app.route("/api/csv/refund", methods=["POST"])
 def csv_refund():
     tids  = (request.json or {}).get("ticket_ids", [])
-    cases = ([db.get_case(t) for t in tids] if tids
-             else db.get_all_cases(state="detected"))
+    cases = ([sheets_db.get_case(t) for t in tids] if tids
+             else sheets_db.get_all_cases(state="detected"))
     cases = [c for c in cases if c]
     return jsonify({"csv": actions.generate_refund_csv(cases), "count": len(cases)})
 
@@ -318,8 +355,8 @@ def csv_refund():
 @app.route("/api/csv/penalty", methods=["POST"])
 def csv_penalty():
     tids  = (request.json or {}).get("ticket_ids", [])
-    cases = ([db.get_case(t) for t in tids] if tids
-             else db.get_all_cases(state="customer_comms"))
+    cases = ([sheets_db.get_case(t) for t in tids] if tids
+             else sheets_db.get_all_cases(state="customer_comms"))
     cases = [c for c in cases if c]
     return jsonify({"csv": actions.generate_penalty_csv(cases), "count": len(cases)})
 
@@ -327,15 +364,15 @@ def csv_penalty():
 @app.route("/api/csv/partner-comms", methods=["POST"])
 def csv_partner_comms_bulk():
     tids  = (request.json or {}).get("ticket_ids", [])
-    cases = ([db.get_case(t) for t in tids] if tids
-             else db.get_all_cases(state="partner_penalty"))
+    cases = ([sheets_db.get_case(t) for t in tids] if tids
+             else sheets_db.get_all_cases(state="partner_penalty"))
     cases = [c for c in cases if c]
     return jsonify({"csv": actions.generate_partner_comms_csv(cases), "count": len(cases)})
 
 
 @app.route("/api/download/penalty-csv")
 def dl_penalty():
-    cases   = db.get_all_cases(state="customer_comms")
+    cases   = sheets_db.get_all_cases(state="customer_comms")
     csv_str = actions.generate_penalty_csv(cases)
     return Response(csv_str, mimetype="text/csv",
                     headers={"Content-Disposition": "attachment; filename=partner_penalty.csv"})
@@ -343,7 +380,7 @@ def dl_penalty():
 
 @app.route("/api/download/partner-comms-csv")
 def dl_partner_comms():
-    cases   = db.get_all_cases(state="partner_penalty")
+    cases   = sheets_db.get_all_cases(state="partner_penalty")
     csv_str = actions.generate_partner_comms_csv(cases)
     return Response(csv_str, mimetype="text/csv",
                     headers={"Content-Disposition": "attachment; filename=partner_comms.csv"})
@@ -374,13 +411,13 @@ def upload_refund_status():
         clean = phone.lstrip("+")
         if clean.startswith("91") and len(clean) > 10:
             clean = clean[2:]
-        result = db.mark_refunded_by_mobile(clean, payout_id)
+        result = sheets_db.mark_refunded_by_mobile(clean, payout_id)
         if result["matched"]:
             matched.append(result)
         else:
             # Also try with original phone value
             if clean != phone:
-                result2 = db.mark_refunded_by_mobile(phone, payout_id)
+                result2 = sheets_db.mark_refunded_by_mobile(phone, payout_id)
                 if result2["matched"]:
                     matched.append(result2)
                     continue
@@ -412,7 +449,7 @@ def upload_penalty_status():
         partner_id = (row.get("Partner Id") or "").strip()
         if not partner_id:
             continue
-        result = db.mark_penalty_by_upload(partner_id)
+        result = sheets_db.mark_penalty_by_upload(partner_id)
         if result["matched"]:
             matched.append(result)
         else:
@@ -428,9 +465,9 @@ def upload_penalty_status():
 
 @app.route("/api/cases/<ticket_id>/confirm-comms", methods=["POST"])
 def confirm_comms(ticket_id):
-    ok = db.advance_state(ticket_id, "customer_comms")
+    ok = sheets_db.advance_state(ticket_id, "customer_comms")
     if ok:
-        return jsonify({"ok": True, "case": db.get_case(ticket_id)})
+        return jsonify({"ok": True, "case": sheets_db.get_case(ticket_id)})
     return jsonify({"error": "Cannot confirm comms for this case"}), 400
 
 

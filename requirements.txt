@@ -1,4 +1,5 @@
 flask>=3.0
+flask-cors>=4.0
 requests>=2.31
 apscheduler>=3.10
 gunicorn>=21.2

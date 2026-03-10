@@ -215,12 +215,12 @@
 <!-- ═══════════ BREACH 2 ═══════════ -->
 <div id="tab-breach2" class="tab-panel active">
 
-  <!-- Config bar (shown if no Apps Script URL) -->
+  <!-- Config bar (shown if no API URL) -->
   <div class="config-bar" id="configBar">
     <span style="font-weight:700">Setup:</span>
-    <input type="text" id="cfgScriptUrl" placeholder="Paste your Google Apps Script Web App URL here..."/>
+    <input type="text" id="cfgScriptUrl" placeholder="Paste your Render API URL here (e.g. https://breach-tracker.onrender.com)"/>
     <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save</button>
-    <span style="font-size:11px;color:var(--text-3)">Deploy apps-script.gs and paste the URL</span>
+    <span style="font-size:11px;color:var(--text-3)">Enter the backend URL from Render</span>
   </div>
 
   <!-- KPI Cards -->
@@ -363,11 +363,11 @@ const B1_SHEET_ID = '1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ';
 const B4_SHEET_ID = '1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc';
 const B4_TAB = 'FP4 : Router Misuse';
 
-function getScriptUrl() { return localStorage.getItem('BT_SCRIPT_URL') || ''; }
+function getApiUrl() { return localStorage.getItem('BT_API_URL') || ''; }
 function saveConfig() {
-  const url = document.getElementById('cfgScriptUrl').value.trim();
-  if (!url) { toast('Enter the Apps Script URL', 'error'); return; }
-  localStorage.setItem('BT_SCRIPT_URL', url);
+  const url = document.getElementById('cfgScriptUrl').value.trim().replace(/\/+$/, '');
+  if (!url) { toast('Enter the API URL (Render)', 'error'); return; }
+  localStorage.setItem('BT_API_URL', url);
   document.getElementById('configBar').style.display = 'none';
   toast('Saved! Loading data...', 'success');
   loadAll();
@@ -393,7 +393,7 @@ function doLogout() {
 function showApp() {
   document.getElementById('authGate').style.display = 'none';
   document.getElementById('app').style.display = '';
-  const url = getScriptUrl();
+  const url = getApiUrl();
   if (url) {
     document.getElementById('configBar').style.display = 'none';
     document.getElementById('cfgScriptUrl').value = url;
@@ -417,27 +417,44 @@ function toast(msg, type='') {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// APPS SCRIPT API (Breach 2)
+// FLASK API (Breach 2) — calls Render-hosted backend
 // ═══════════════════════════════════════════════════════════════════════════════
-async function gsGet(action, params={}) {
-  const url = getScriptUrl();
-  if (!url) return null;
-  const qs = new URLSearchParams({action, ...params}).toString();
+function authHeaders() {
+  return { 'Authorization': 'Basic ' + btoa(AUTH_USER + ':' + AUTH_PASS), 'Content-Type': 'application/json' };
+}
+
+async function apiGet(path, params={}) {
+  const base = getApiUrl();
+  if (!base) return null;
+  const qs = new URLSearchParams(params).toString();
+  const url = base + path + (qs ? '?' + qs : '');
   try {
-    const r = await fetch(url + '?' + qs, {redirect:'follow'});
+    const r = await fetch(url, { headers: authHeaders() });
     return await r.json();
   } catch(e) { toast('API error: ' + e.message, 'error'); return null; }
 }
 
-async function gsPost(data) {
-  const url = getScriptUrl();
-  if (!url) return null;
+async function apiPost(path, data={}) {
+  const base = getApiUrl();
+  if (!base) return null;
   try {
-    const r = await fetch(url, {
+    const r = await fetch(base + path, {
       method: 'POST',
-      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      headers: authHeaders(),
       body: JSON.stringify(data),
-      redirect: 'follow',
+    });
+    return await r.json();
+  } catch(e) { toast('API error: ' + e.message, 'error'); return null; }
+}
+
+async function apiPostFile(path, formData) {
+  const base = getApiUrl();
+  if (!base) return null;
+  try {
+    const r = await fetch(base + path, {
+      method: 'POST',
+      headers: { 'Authorization': 'Basic ' + btoa(AUTH_USER + ':' + AUTH_PASS) },
+      body: formData,
     });
     return await r.json();
   } catch(e) { toast('API error: ' + e.message, 'error'); return null; }
@@ -487,7 +504,7 @@ const STATE_LABELS = {detected:'Detected',customer_refunded:'Refunded',customer_
 function stateBadge(s) { return `<span class="state-badge big state-${s}"><span class="dot"></span>${STATE_LABELS[s]||s}</span>`; }
 
 async function loadSummary() {
-  const s = await gsGet('getSummary');
+  const s = await apiGet('/api/cases/summary');
   if (!s) return;
   document.getElementById('k-total').textContent    = s.total ?? '--';
   document.getElementById('k-detected').textContent = s.by_state?.detected ?? '--';
@@ -502,7 +519,7 @@ async function loadSummary() {
 }
 
 async function loadZones() {
-  const zones = await gsGet('getZones');
+  const zones = await apiGet('/api/cases/zones');
   if (!zones) return;
   const sel = document.getElementById('fZone');
   sel.innerHTML = '<option value="all">All Zones</option>';
@@ -513,7 +530,7 @@ async function loadCases() {
   const state  = document.getElementById('fState').value;
   const zone   = document.getElementById('fZone').value;
   const search = document.getElementById('fSearch').value.trim();
-  const data = await gsGet('getCases', {state, zone, search});
+  const data = await apiGet('/api/cases', {state, zone, search});
   if (!data) return;
   cases = data;
   renderCases(cases);
@@ -672,7 +689,7 @@ function renderDetail(c) {
 async function confirmCommsInline(tid, evt) {
   if (evt) evt.stopPropagation();
   toast('Confirming...');
-  const r = await gsPost({action:'confirmComms', ticket_id:tid});
+  const r = await apiPost('/api/cases/'+tid+'/confirm-comms');
   if (r?.error) { toast(r.error, 'error'); return; }
   toast('Customer comms confirmed', 'success');
   await refreshAll();
@@ -680,7 +697,7 @@ async function confirmCommsInline(tid, evt) {
 
 async function undoInline(tid, evt) {
   if (evt) evt.stopPropagation();
-  const r = await gsPost({action:'undoState', ticket_id:tid});
+  const r = await apiPost('/api/cases/'+tid+'/undo');
   if (r?.error) { toast(r.error, 'error'); return; }
   toast('Undone', 'success');
   await refreshAll();
@@ -690,9 +707,12 @@ async function bulkConfirmComms() {
   const tids = [...selectedCases];
   if (!tids.length) { toast('No cases selected', 'error'); return; }
   toast('Confirming comms...');
-  const r = await gsPost({action:'bulkConfirmComms', ticket_ids:tids});
-  if (r?.error) { toast(r.error, 'error'); return; }
-  toast(`Confirmed ${r.count} case(s)`, 'success');
+  let done = 0;
+  for (const tid of tids) {
+    const r = await apiPost('/api/cases/'+tid+'/confirm-comms');
+    if (r?.ok) done++;
+  }
+  toast(`Confirmed ${done} case(s)`, 'success');
   clearSelection();
   await refreshAll();
 }
@@ -763,32 +783,13 @@ function dlBulk(type) {
 
 // ── CSV Upload ───────────────────────────────────────────────────────────────
 
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
-  return lines.slice(1).map(line => {
-    const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g,''));
-    const obj = {};
-    headers.forEach((h,i) => obj[h] = vals[i] || '');
-    return obj;
-  });
-}
-
 async function handleRefundUpload(input) {
   const file = input.files[0];
   if (!file) return;
   toast('Processing refund CSV...');
-  const text = await file.text();
-  const rows = parseCSV(text);
-  const entries = rows.map(r => ({
-    mobile: r['Contact Phone Number'] || '',
-    payout_link_id: r['Payout Link ID'] || '',
-  })).filter(e => e.mobile && e.payout_link_id);
-
-  if (!entries.length) { toast('No valid entries found', 'error'); input.value=''; return; }
-
-  const r = await gsPost({action:'uploadRefundStatus', entries});
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await apiPostFile('/api/upload/refund-status', fd);
   if (r?.error) { toast(r.error, 'error'); }
   else { toast(`Refund: ${r.matched_count} matched, ${r.unmatched_count} unmatched`, r.matched_count > 0 ? 'success' : 'error'); }
   if (r?.matched_count > 0) await refreshAll();
@@ -799,13 +800,9 @@ async function handlePenaltyUpload(input) {
   const file = input.files[0];
   if (!file) return;
   toast('Processing penalty CSV...');
-  const text = await file.text();
-  const rows = parseCSV(text);
-  const entries = rows.map(r => ({partner_id: r['Partner Id'] || ''})).filter(e => e.partner_id);
-
-  if (!entries.length) { toast('No valid entries found', 'error'); input.value=''; return; }
-
-  const r = await gsPost({action:'uploadPenaltyStatus', entries});
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await apiPostFile('/api/upload/penalty-status', fd);
   if (r?.error) { toast(r.error, 'error'); }
   else { toast(`Penalty: ${r.matched_count} matched, ${r.unmatched_count} unmatched`, r.matched_count > 0 ? 'success' : 'error'); }
   if (r?.matched_count > 0) await refreshAll();
@@ -891,13 +888,13 @@ function renderB4() {
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════════
 async function loadAll() {
-  if (!getScriptUrl()) return;
+  if (!getApiUrl()) return;
   await Promise.all([loadSummary(), loadCases(), loadZones()]);
 }
 
 // Auto-refresh every 30 seconds
 setInterval(() => {
-  if (sessionStorage.getItem('bt_auth') === '1' && getScriptUrl()) {
+  if (sessionStorage.getItem('bt_auth') === '1' && getApiUrl()) {
     loadSummary();
     if (currentTab === 'breach2') loadCases();
   }
