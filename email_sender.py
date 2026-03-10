@@ -2,6 +2,8 @@
 
 import smtplib
 import json
+import base64
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import config
@@ -556,16 +558,62 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str,
     msg.attach(MIMEText(body_text, "plain", "utf-8"))
     msg.attach(MIMEText(body_html, "html", "utf-8"))
 
+    # Try SMTP first, fall back to Gmail API if SMTP is blocked (e.g. Railway)
     try:
         if smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as server:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) as server:
                 server.login(smtp_user, smtp_pass)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
                 server.starttls()
                 server.login(smtp_user, smtp_pass)
                 server.send_message(msg)
         return {"ok": True}
+    except OSError:
+        # SMTP port blocked — fall back to Gmail API via HTTPS
+        try:
+            return _send_via_gmail_api(smtp_user, smtp_pass, msg)
+        except Exception as e2:
+            return {"ok": False, "error": f"SMTP blocked, Gmail API fallback failed: {e2}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+def _send_via_gmail_api(user: str, app_password: str, msg: MIMEMultipart) -> dict:
+    """Send email via Gmail API using app password (HTTPS, no SMTP port needed)."""
+    import google.auth.transport.requests
+    from google.oauth2.credentials import Credentials
+
+    # Use XOAUTH2 via Gmail API REST endpoint with app password basic auth
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    # Gmail API with app password doesn't work directly — use Google SMTP relay over submission port
+    # Alternative: send via requests to a simple relay
+    # Simplest: use smtplib with timeout retry on different ports
+    # Actually: use Gmail's API with service account
+
+    # Use the Google service account for Gmail API
+    import os
+    from pathlib import Path
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    sa_file = Path(__file__).parent / "service_account.json"
+
+    if sa_json:
+        info = json.loads(sa_json)
+    elif sa_file.exists():
+        with open(sa_file) as f:
+            info = json.load(f)
+    else:
+        return {"ok": False, "error": "No service account available for Gmail API fallback"}
+
+    from google.oauth2 import service_account as sa
+    from googleapiclient.discovery import build
+
+    SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+    creds = sa.Credentials.from_service_account_info(info, scopes=SCOPES)
+    delegated = creds.with_subject(user)
+
+    service = build('gmail', 'v1', credentials=delegated)
+    body = {'raw': raw}
+    service.users().messages().send(userId='me', body=body).execute()
+    return {"ok": True}
