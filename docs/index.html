@@ -233,57 +233,85 @@
     <div class="kpi-card pink"><div class="kpi-label">Total Amount</div><div class="kpi-value" id="k-amount">--</div><div class="kpi-sub">Extra cash taken</div></div>
   </div>
 
-  <!-- Action bar -->
-  <div class="action-bar">
-    <span class="action-label">Refund</span>
-    <button class="btn btn-outline btn-sm" onclick="dlBulk('refund')">Download Refund CSV</button>
-    <input type="file" id="refundUploadInput" accept=".csv" style="display:none" onchange="handleRefundUpload(this)"/>
-    <button class="btn btn-success btn-sm" onclick="document.getElementById('refundUploadInput').click()">Upload Refund Result</button>
-    <span class="action-label" style="margin-left:12px">Penalty</span>
-    <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">Download Penalty CSV</button>
-    <input type="file" id="penaltyUploadInput" accept=".csv" style="display:none" onchange="handlePenaltyUpload(this)"/>
-    <button class="btn btn-info btn-sm" onclick="document.getElementById('penaltyUploadInput').click()">Upload Penalty Result</button>
-    <div class="spacer"></div>
+  <!-- Sub-tab bar -->
+  <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border);background:var(--white);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden">
+    <div class="nav-tab active" id="b2sub-cases-tab" onclick="switchB2Sub('cases')" style="border-bottom-width:2px">Cases</div>
+    <div class="nav-tab" id="b2sub-comms-tab" onclick="switchB2Sub('comms')" style="border-bottom-width:2px">Customer Comms <span class="nav-badge" id="comms-badge" style="display:none;background:var(--success)">0</span></div>
   </div>
 
-  <!-- Filter bar -->
-  <div class="filter-bar">
-    <select id="fState" onchange="loadCases()">
-      <option value="all">All States</option>
-      <option value="detected">Detected</option>
-      <option value="customer_refunded">Refunded — Awaiting Comms</option>
-      <option value="customer_comms">Comms Done — Awaiting Penalty</option>
-      <option value="partner_penalty">Penalty Done</option>
-    </select>
-    <select id="fZone" onchange="loadCases()"><option value="all">All Zones</option></select>
-    <input type="search" id="fSearch" placeholder="Search ticket, mobile, partner..." oninput="loadCases()"/>
-    <span id="fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
+  <!-- ── Cases sub-tab ── -->
+  <div id="b2sub-cases">
+    <div class="action-bar">
+      <span class="action-label">Refund</span>
+      <button class="btn btn-outline btn-sm" onclick="dlBulk('refund')">Download Refund CSV</button>
+      <input type="file" id="refundUploadInput" accept=".csv" style="display:none" onchange="handleRefundUpload(this)"/>
+      <button class="btn btn-success btn-sm" onclick="document.getElementById('refundUploadInput').click()">Upload Refund Result</button>
+      <span class="action-label" style="margin-left:12px">Penalty</span>
+      <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">Download Penalty CSV</button>
+      <input type="file" id="penaltyUploadInput" accept=".csv" style="display:none" onchange="handlePenaltyUpload(this)"/>
+      <button class="btn btn-info btn-sm" onclick="document.getElementById('penaltyUploadInput').click()">Upload Penalty Result</button>
+      <div class="spacer"></div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <select id="fState" onchange="loadCases()">
+        <option value="all">All States</option>
+        <option value="detected">Detected</option>
+        <option value="customer_refunded">Refunded — Awaiting Comms</option>
+        <option value="customer_comms">Comms Done — Awaiting Penalty</option>
+        <option value="partner_penalty">Penalty Done</option>
+      </select>
+      <select id="fZone" onchange="loadCases()"><option value="all">All Zones</option></select>
+      <input type="search" id="fSearch" placeholder="Search ticket, mobile, partner..." oninput="loadCases()"/>
+      <span id="fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
+    </div>
+
+    <!-- Install Cases -->
+    <div class="section-div"><h3>Install Cases</h3><span class="scnt i" id="ic">0</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="check-col"><input type="checkbox" id="chk-install-all" onchange="selectAll('install',this.checked)"/></th>
+          <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Amount</th><th>Emp Role</th><th>Technician</th><th>State</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="installBody"><tr><td colspan="11" class="loading-state">Loading...</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- Other Cases -->
+    <div class="section-div" style="margin-top:24px"><h3>Other Cases</h3><span class="scnt o" id="oc">0</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="check-col"><input type="checkbox" id="chk-other-all" onchange="selectAll('other',this.checked)"/></th>
+          <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Amount</th><th>State</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="otherBody"><tr><td colspan="9" class="loading-state">Loading...</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
-  <!-- Install Cases -->
-  <div class="section-div"><h3>Install Cases</h3><span class="scnt i" id="ic">0</span></div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th class="check-col"><input type="checkbox" id="chk-install-all" onchange="selectAll('install',this.checked)"/></th>
-        <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
-        <th>Amount</th><th>Emp Role</th><th>Technician</th><th>State</th><th>Actions</th>
-      </tr></thead>
-      <tbody id="installBody"><tr><td colspan="11" class="loading-state">Loading...</td></tr></tbody>
-    </table>
-  </div>
-
-  <!-- Other Cases -->
-  <div class="section-div" style="margin-top:24px"><h3>Other Cases</h3><span class="scnt o" id="oc">0</span></div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th class="check-col"><input type="checkbox" id="chk-other-all" onchange="selectAll('other',this.checked)"/></th>
-        <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
-        <th>Amount</th><th>State</th><th>Actions</th>
-      </tr></thead>
-      <tbody id="otherBody"><tr><td colspan="9" class="loading-state">Loading...</td></tr></tbody>
-    </table>
+  <!-- ── Customer Comms sub-tab ── -->
+  <div id="b2sub-comms" style="display:none">
+    <div class="action-bar">
+      <span class="action-label">Customer Comms</span>
+      <span style="font-size:12px;color:var(--text-2)">Call customers to confirm refund received, then mark comms done</span>
+      <div class="spacer"></div>
+      <button class="btn btn-success btn-sm" onclick="bulkMarkCommsDone()" id="bulkCommsBtn" disabled>Mark Selected Done</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="check-col"><input type="checkbox" id="comms-chk-all" onchange="commsSelectAll(this.checked)"/></th>
+          <th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Amount</th><th>Payout Link</th><th>Refunded At</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="commsBody"><tr><td colspan="9" class="loading-state">Loading...</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
 </div><!-- /breach2 -->
@@ -536,7 +564,88 @@ async function loadCases() {
   renderCases(cases);
 }
 
-async function refreshAll() { await Promise.all([loadSummary(), loadCases()]); }
+async function refreshAll() { await Promise.all([loadSummary(), loadCases(), loadCommsBadge()]); }
+
+// ── B2 Sub-tabs & Customer Comms ─────────────────────────────────────────────
+let commsData = [];
+let commsSelected = new Set();
+
+function switchB2Sub(sub) {
+  document.getElementById('b2sub-cases').style.display = sub === 'cases' ? '' : 'none';
+  document.getElementById('b2sub-comms').style.display = sub === 'comms' ? '' : 'none';
+  document.getElementById('b2sub-cases-tab').classList.toggle('active', sub === 'cases');
+  document.getElementById('b2sub-comms-tab').classList.toggle('active', sub === 'comms');
+  if (sub === 'comms') loadCommsTab();
+}
+
+async function loadCommsTab() {
+  commsData = await apiGet('/api/customer-comms');
+  if (!commsData) commsData = [];
+  renderCommsTab();
+}
+
+function renderCommsTab() {
+  const body = document.getElementById('commsBody');
+  if (!commsData.length) {
+    body.innerHTML = '<tr><td colspan="9"><div class="empty-state">No cases awaiting customer comms</div></td></tr>';
+    return;
+  }
+  body.innerHTML = commsData.map(c => {
+    const mobileLink = c.customer_mobile ? `<a href="tel:${c.customer_mobile}" style="color:var(--pink);font-weight:600;text-decoration:none">${c.customer_mobile}</a>` : '--';
+    const payoutLink = c.refund_payout_link ? `<a href="${c.refund_payout_link}" target="_blank" class="btn btn-primary btn-xs" onclick="event.stopPropagation()">View Payout</a>` : '<span style="color:var(--text-3)">--</span>';
+    const amt = c.extra_amount ? `<strong style="color:var(--pink)">\u20B9${c.extra_amount}</strong>` : '--';
+    return `<tr>
+      <td class="check-col"><input type="checkbox" class="comms-chk" value="${c.ticket_id}" ${commsSelected.has(c.ticket_id)?'checked':''} onchange="commsHandleChk(this)"/></td>
+      <td><code style="font-size:11px">${String(c.ticket_id).slice(-8)}</code></td>
+      <td>${mobileLink}</td>
+      <td style="max-width:130px">${c.current_partner_name||'--'}</td>
+      <td style="font-size:12px">${c.zone||'--'}</td>
+      <td>${amt}</td>
+      <td>${payoutLink}</td>
+      <td style="font-size:12px">${(c.customer_refunded_at||'').slice(0,16)||'--'}</td>
+      <td><button class="btn btn-success btn-xs" onclick="markCommsDone('${c.ticket_id}')">Comms Done</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function markCommsDone(tid) {
+  toast('Confirming comms...');
+  const r = await apiPost('/api/cases/'+tid+'/confirm-comms');
+  if (r?.error) { toast(r.error, 'error'); return; }
+  toast('Customer comms confirmed', 'success');
+  await Promise.all([loadCommsTab(), loadCommsBadge(), loadSummary()]);
+}
+
+async function bulkMarkCommsDone() {
+  const tids = [...commsSelected];
+  if (!tids.length) { toast('No cases selected', 'error'); return; }
+  toast('Confirming comms...');
+  let done = 0;
+  for (const tid of tids) {
+    const r = await apiPost('/api/cases/'+tid+'/confirm-comms');
+    if (r?.ok) done++;
+  }
+  toast(`Confirmed comms for ${done} case(s)`, 'success');
+  commsSelected.clear();
+  await Promise.all([loadCommsTab(), loadCommsBadge(), loadSummary()]);
+}
+
+function commsHandleChk(chk) {
+  if (chk.checked) commsSelected.add(chk.value); else commsSelected.delete(chk.value);
+  document.getElementById('bulkCommsBtn').disabled = commsSelected.size === 0;
+}
+
+function commsSelectAll(checked) {
+  document.querySelectorAll('.comms-chk').forEach(chk => { chk.checked = checked; commsHandleChk(chk); });
+}
+
+async function loadCommsBadge() {
+  const data = await apiGet('/api/customer-comms');
+  const badge = document.getElementById('comms-badge');
+  const count = data ? data.length : 0;
+  badge.style.display = count > 0 ? 'inline' : 'none';
+  badge.textContent = count;
+}
 
 function groupByDay(arr) {
   const g = {};
@@ -889,15 +998,19 @@ function renderB4() {
 // ═══════════════════════════════════════════════════════════════════════════════
 async function loadAll() {
   if (!getApiUrl()) return;
-  await Promise.all([loadSummary(), loadCases(), loadZones()]);
+  await Promise.all([loadSummary(), loadCases(), loadZones(), loadCommsBadge()]);
 }
 
 // Auto-refresh every 30 seconds
 setInterval(() => {
-  if (sessionStorage.getItem('bt_auth') === '1' && getApiUrl()) {
+  if (sessionStorage.getItem('bt_auth') !== '1') return;
+  if (getApiUrl()) {
     loadSummary();
+    loadCommsBadge();
     if (currentTab === 'breach2') loadCases();
   }
+  if (currentTab === 'breach1') loadB1();
+  if (currentTab === 'breach4') loadB4();
 }, 30000);
 </script>
 </body>

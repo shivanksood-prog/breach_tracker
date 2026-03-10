@@ -178,6 +178,14 @@ def get_summary() -> dict:
     }
 
 
+def get_pending_comms() -> list:
+    """Return cases in customer_refunded state (ready for comms), with comms_log for API compat."""
+    cases = get_all_cases(state="customer_refunded")
+    for c in cases:
+        c["comms_log"] = []
+    return cases
+
+
 def get_all_zones() -> list:
     rows = _read_all()
     zones = set()

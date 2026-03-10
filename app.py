@@ -298,17 +298,15 @@ def fetch_kapture_single(ticket_id):
 
 @app.route("/api/customer-comms")
 def get_customer_comms():
-    return jsonify(db.get_pending_comms())
+    return jsonify(sheets_db.get_pending_comms())
 
 
 @app.route("/api/customer-comms/<ticket_id>/log", methods=["POST"])
 def log_comms(ticket_id):
-    body      = request.json or {}
-    agent     = body.get("agent_name", "")
-    connected = body.get("connected", "No")
-    comment   = body.get("comment", "")
-    updated   = db.log_comms_attempt(ticket_id, agent, connected, comment)
-    return jsonify(updated)
+    ok = sheets_db.advance_state(ticket_id, "customer_comms")
+    if ok:
+        return jsonify({"ok": True, "case": sheets_db.get_case(ticket_id)})
+    return jsonify({"error": "Cannot advance state"}), 400
 
 
 @app.route("/api/cases/<ticket_id>/advance", methods=["POST"])

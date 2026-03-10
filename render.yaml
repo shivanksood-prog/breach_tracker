@@ -9,3 +9,5 @@ services:
         value: 3.12.3
       - key: BREACH2_SHEET_ID
         value: 1tYkZxNSFbAgTa7lfEsdcFEmbp8w6qcQ9KSV7wBo1eOc
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false  # Set manually in Render dashboard as a secret

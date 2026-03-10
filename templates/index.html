@@ -576,8 +576,14 @@
     <div class="kpi-card pink"><div class="kpi-label">Total Amount</div><div class="kpi-value" id="k-amount">—</div><div class="kpi-sub">Extra cash taken</div></div>
   </div>
 
-  <!-- Action bar -->
-  <div id="b2-dash">
+  <!-- Sub-tab bar -->
+  <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border);background:var(--white);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden">
+    <div class="nav-tab active" id="b2sub-cases-tab" onclick="switchB2Sub('cases')" style="border-bottom-width:2px">Cases</div>
+    <div class="nav-tab" id="b2sub-comms-tab" onclick="switchB2Sub('comms')" style="border-bottom-width:2px">Customer Comms <span class="nav-badge" id="comms-badge" style="display:none;background:var(--success)">0</span></div>
+  </div>
+
+  <!-- ── Cases sub-tab ── -->
+  <div id="b2sub-cases">
     <div class="action-bar">
       <span class="action-label">Refund</span>
       <button class="btn btn-outline btn-sm" onclick="dlBulk('refund')">⬇ Refund CSV (Detected)</button>
@@ -628,6 +634,26 @@
           <th>Amount</th><th>State</th><th>Actions</th>
         </tr></thead>
         <tbody id="otherBody"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Customer Comms sub-tab ── -->
+  <div id="b2sub-comms" style="display:none">
+    <div class="action-bar">
+      <span class="action-label">Customer Comms</span>
+      <span style="font-size:12px;color:var(--text-2)">Call customers to confirm refund received, then mark comms done</span>
+      <div class="spacer"></div>
+      <button class="btn btn-success btn-sm" onclick="bulkMarkCommsDone()" id="bulkCommsBtn" disabled>Mark Selected Done</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="check-col"><input type="checkbox" id="comms-chk-all" onchange="commsSelectAll(this.checked)"/></th>
+          <th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Amount</th><th>Payout Link</th><th>Refunded At</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="commsBody"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1349,7 +1375,88 @@ async function syncNow() {
   }
 }
 
-async function refreshAll() { await Promise.all([loadSummary(), loadCases()]); }
+async function refreshAll() { await Promise.all([loadSummary(), loadCases(), loadCommsBadge()]); }
+
+// ── B2 Sub-tabs & Customer Comms ─────────────────────────────────────────────
+let commsData = [];
+let commsSelected = new Set();
+
+function switchB2Sub(sub) {
+  document.getElementById('b2sub-cases').style.display = sub === 'cases' ? '' : 'none';
+  document.getElementById('b2sub-comms').style.display = sub === 'comms' ? '' : 'none';
+  document.getElementById('b2sub-cases-tab').classList.toggle('active', sub === 'cases');
+  document.getElementById('b2sub-comms-tab').classList.toggle('active', sub === 'comms');
+  if (sub === 'comms') loadCommsTab();
+}
+
+async function loadCommsTab() {
+  commsData = await api('GET', '/api/customer-comms');
+  renderCommsTab();
+}
+
+function renderCommsTab() {
+  const body = document.getElementById('commsBody');
+  if (!commsData || !commsData.length) {
+    body.innerHTML = '<tr><td colspan="9"><div class="empty-state">No cases awaiting customer comms</div></td></tr>';
+    return;
+  }
+  body.innerHTML = commsData.map(c => {
+    const mobile = c.customer_mobile || '—';
+    const mobileLink = c.customer_mobile ? `<a href="tel:${c.customer_mobile}" style="color:var(--pink);font-weight:600;text-decoration:none">${c.customer_mobile}</a>` : '—';
+    const payoutLink = c.refund_payout_link ? `<a href="${c.refund_payout_link}" target="_blank" class="btn btn-primary btn-xs" onclick="event.stopPropagation()">View Payout</a>` : '<span style="color:var(--text-3)">—</span>';
+    const amt = c.extra_amount ? `<strong style="color:var(--pink)">\u20B9${c.extra_amount}</strong>` : '—';
+    return `<tr>
+      <td class="check-col"><input type="checkbox" class="comms-chk" value="${c.ticket_id}" ${commsSelected.has(c.ticket_id)?'checked':''} onchange="commsHandleChk(this)"/></td>
+      <td><code style="font-size:11px">${String(c.ticket_id).slice(-8)}</code></td>
+      <td>${mobileLink}</td>
+      <td style="max-width:130px">${c.current_partner_name||'—'}</td>
+      <td style="font-size:12px">${c.zone||'—'}</td>
+      <td>${amt}</td>
+      <td>${payoutLink}</td>
+      <td style="font-size:12px">${(c.customer_refunded_at||'').slice(0,16)||'—'}</td>
+      <td><button class="btn btn-success btn-xs" onclick="markCommsDone('${c.ticket_id}')">Comms Done</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function markCommsDone(tid) {
+  toast('Confirming comms…');
+  const r = await api('POST', '/api/cases/'+tid+'/confirm-comms');
+  if (r?.error) { toast(r.error, 'error'); return; }
+  toast('Customer comms confirmed', 'success');
+  await Promise.all([loadCommsTab(), loadCommsBadge(), loadSummary()]);
+}
+
+async function bulkMarkCommsDone() {
+  const tids = [...commsSelected];
+  if (!tids.length) { toast('No cases selected', 'error'); return; }
+  toast('Confirming comms…');
+  let done = 0;
+  for (const tid of tids) {
+    const r = await api('POST', '/api/cases/'+tid+'/confirm-comms');
+    if (r?.ok) done++;
+  }
+  toast(`Confirmed comms for ${done} case(s)`, 'success');
+  commsSelected.clear();
+  await Promise.all([loadCommsTab(), loadCommsBadge(), loadSummary()]);
+}
+
+function commsHandleChk(chk) {
+  if (chk.checked) commsSelected.add(chk.value); else commsSelected.delete(chk.value);
+  document.getElementById('bulkCommsBtn').disabled = commsSelected.size === 0;
+}
+
+function commsSelectAll(checked) {
+  document.querySelectorAll('.comms-chk').forEach(chk => { chk.checked = checked; commsHandleChk(chk); });
+}
+
+async function loadCommsBadge() {
+  const data = await api('GET', '/api/customer-comms');
+  const badge = document.getElementById('comms-badge');
+  const count = data ? data.length : 0;
+  badge.style.display = count > 0 ? 'inline' : 'none';
+  badge.textContent = count;
+}
 
 async function loadSummary() {
   const s = await api('GET', '/api/cases/summary');
@@ -1801,6 +1908,7 @@ async function init() {
   // Load Breach 2 in background
   loadSummary();
   loadZones();
+  loadCommsBadge();
   setInterval(loadSummary, 30000);
 }
 init();
