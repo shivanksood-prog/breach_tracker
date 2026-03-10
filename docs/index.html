@@ -391,7 +391,7 @@ const B1_SHEET_ID = '1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ';
 const B4_SHEET_ID = '1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc';
 const B4_TAB = 'FP4 : Router Misuse';
 
-function getApiUrl() { return localStorage.getItem('BT_API_URL') || 'https://breach-tracker.onrender.com'; }
+function getApiUrl() { return localStorage.getItem('BT_API_URL') || 'https://breach-tracker-production.up.railway.app'; }
 function saveConfig() {
   const url = document.getElementById('cfgScriptUrl').value.trim().replace(/\/+$/, '');
   if (!url) { toast('Enter the API URL (Render)', 'error'); return; }
