@@ -10,10 +10,15 @@ DEFAULTS = {
     "metabase_api_key": os.environ.get("METABASE_API_KEY", "mb_XPG56dRucXiZ6CG958t9UBV1Y4r1/DY4l7WcsFUD5w4="),
     "metabase_username": os.environ.get("METABASE_USERNAME", ""),
     "metabase_password": os.environ.get("METABASE_PASSWORD", ""),
-    "metabase_database_id": os.environ.get("METABASE_DATABASE_ID", ""),
+    "metabase_database_id": os.environ.get("METABASE_DATABASE_ID", "113"),
     "slack_webhook_url": os.environ.get("SLACK_WEBHOOK_URL", ""),
     "kapture_auth_header": os.environ.get("KAPTURE_AUTH_HEADER", "Basic cGgwYmg3eDJhZWljenZ3aHIxdmdwZ20wcmprcDVycms2ZzZvZTJqZG1pM3ZrdDh3N20="),
     "kapture_cookie": os.environ.get("KAPTURE_COOKIE", "JSESSIONID=9251DC2F4B5DB2CB30C7ADC19DEDA863; _KAPTURECRM_SESSION=; JSESSIONID=8213F0B12C9738CC4FBA9A7110FE727A; JSESSIONRID=3SDmlhjtZ1s1DmlhjtZ; _KAPTURECRM_SESSION=; _KSID=708ca9a6c5164d77b6dcb32756ad6405.3SDmlhjtZ1s1DmlhjtZ"),
+    "smtp_host": os.environ.get("SMTP_HOST", "smtp.gmail.com"),
+    "smtp_port": os.environ.get("SMTP_PORT", "587"),
+    "smtp_user": os.environ.get("SMTP_USER", "partner@wiom.in"),
+    "smtp_password": os.environ.get("SMTP_PASSWORD", "hmyh mria jazo rlct"),
+    "smtp_from_email": os.environ.get("SMTP_FROM_EMAIL", "partner@wiom.in"),
 }
 
 
