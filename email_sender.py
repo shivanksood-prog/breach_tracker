@@ -557,10 +557,15 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str,
     msg.attach(MIMEText(body_html, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
+        if smtp_port == 465:
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as server:
+                server.login(smtp_user, smtp_pass)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+                server.send_message(msg)
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
