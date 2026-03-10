@@ -1119,7 +1119,8 @@ async function sendB2Email(isTest) {
 
 async function loadAll() {
   if (!getApiUrl()) return;
-  await Promise.all([loadSummary(), loadCases(), loadZones(), loadCommsBadge(), loadRepeatCustomers()]);
+  await loadRepeatCustomers();
+  await Promise.all([loadSummary(), loadCases(), loadZones(), loadCommsBadge()]);
   // Auto-load B1 and B4 in background
   loadB1();
   loadB4();
@@ -1129,6 +1130,7 @@ async function loadAll() {
 setInterval(() => {
   if (sessionStorage.getItem('bt_auth') !== '1') return;
   if (getApiUrl()) {
+    loadRepeatCustomers();
     loadSummary();
     loadCommsBadge();
     if (currentTab === 'breach2') loadCases();

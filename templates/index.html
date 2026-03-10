@@ -2027,10 +2027,10 @@ async function init() {
   // Load Breach 4 summary
   loadB4Summary();
   // Load Breach 2 in background
+  await loadRepeatCustomers();
   loadSummary();
   loadZones();
   loadCommsBadge();
-  loadRepeatCustomers();
   setInterval(loadSummary, 30000);
 }
 init();
