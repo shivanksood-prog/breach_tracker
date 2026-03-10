@@ -40,6 +40,8 @@ def auth_required(f):
 
 @app.before_request
 def require_login():
+    if request.method == 'OPTIONS':
+        return  # Let Flask-CORS handle preflight
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
         return Response(
