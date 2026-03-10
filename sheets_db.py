@@ -334,6 +334,35 @@ def upsert_case(data_dict: dict):
         ).execute()
 
 
+def get_repeat_customers() -> dict:
+    """Find customers (by mobile) who appear more than once. Returns {mobile: count}."""
+    rows = _read_all()
+    mobile_counts = {}
+    for r in rows:
+        padded = r + [""] * (len(HEADERS) - len(r))
+        mob = str(padded[COL["customer_mobile"]] or "").strip()
+        if mob:
+            mobile_counts[mob] = mobile_counts.get(mob, 0) + 1
+    return {m: c for m, c in mobile_counts.items() if c > 1}
+
+
+def get_partner_email_for_case(ticket_id: str) -> str:
+    """Look up partner email from the partner sheet for a B2 case."""
+    case = get_case(ticket_id)
+    if not case:
+        return ""
+    partner_name = (case.get("current_partner_name") or "").strip()
+    if not partner_name:
+        return ""
+    try:
+        from google_sheets import get_all_partner_emails
+        emails = get_all_partner_emails()
+        info = emails.get(partner_name.lower(), {})
+        return info.get("email", "")
+    except Exception:
+        return ""
+
+
 def update_kapture_fields(ticket_id: str, extra_amount, technician_name, voluntary_tip, raw_json: str):
     """Update Kapture-enriched fields for a case."""
     data = _read_all()

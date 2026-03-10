@@ -471,6 +471,80 @@ def confirm_comms(ticket_id):
     return jsonify({"error": "Cannot confirm comms for this case"}), 400
 
 
+# ── Fraud Tracker ─────────────────────────────────────────────────────────────
+
+@app.route("/api/cases/repeat-customers")
+def repeat_customers():
+    return jsonify(sheets_db.get_repeat_customers())
+
+
+# ── FP2 Partner Email ─────────────────────────────────────────────────────────
+
+@app.route("/api/breach2/template")
+def breach2_template():
+    from email_sender import get_fp2_template_info
+    return jsonify(get_fp2_template_info())
+
+
+@app.route("/api/breach2/preview-email", methods=["POST"])
+def breach2_preview():
+    from email_sender import render_fp2_email
+    body = request.json or {}
+    language = body.get("language", "both")
+    selected_vars = body.get("selected_vars", [])
+    values = body.get("values", {})
+    try:
+        result = render_fp2_email(language, selected_vars, values)
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/breach2/send-email", methods=["POST"])
+def breach2_send_email():
+    from email_sender import render_fp2_email, send_email
+    from google_sheets import get_all_partner_emails
+    body = request.json or {}
+    ticket_ids = body.get("ticket_ids", [])
+    language = body.get("language", "both")
+    selected_vars = body.get("selected_vars", [])
+    values = body.get("values", {})
+    test_email = body.get("test_email", "").strip()
+    is_test = bool(test_email)
+
+    partner_emails = get_all_partner_emails()
+    results = []
+    for tid in ticket_ids:
+        case = sheets_db.get_case(tid)
+        if not case:
+            results.append({"ticket_id": tid, "ok": False, "error": "Case not found"})
+            continue
+
+        vars_filled = dict(values)
+        if "CUSTOMER_MOBILE" in selected_vars and not vars_filled.get("CUSTOMER_MOBILE"):
+            mobile = case.get("customer_mobile", "")
+            vars_filled["CUSTOMER_MOBILE"] = mobile[:4] if len(mobile) >= 4 else mobile
+        if "EXTRA_AMOUNT" in selected_vars and not vars_filled.get("EXTRA_AMOUNT"):
+            vars_filled["EXTRA_AMOUNT"] = str(int(case.get("extra_amount") or 0))
+        if "TICKET_ID" in selected_vars and not vars_filled.get("TICKET_ID"):
+            vars_filled["TICKET_ID"] = case.get("kapture_ticket_id") or tid
+
+        rendered = render_fp2_email(language, selected_vars, vars_filled)
+        partner_name = (case.get("current_partner_name") or "").strip()
+        email_info = partner_emails.get(partner_name.lower(), {})
+        recipient = test_email if is_test else email_info.get("email", "")
+
+        if not recipient:
+            results.append({"ticket_id": tid, "ok": False, "error": "No partner email"})
+            continue
+
+        send_result = send_email(recipient, rendered["subject"], rendered["body_text"], rendered["body_html"])
+        results.append({"ticket_id": tid, "partner": partner_name, "recipient": recipient, **send_result})
+
+    return jsonify({"results": results, "total": len(results),
+                    "sent": sum(1 for r in results if r.get("ok"))})
+
+
 # ── Breach 1 (Disintermediation) ──────────────────────────────────────────────
 
 @app.route("/api/breach1/sync", methods=["POST"])

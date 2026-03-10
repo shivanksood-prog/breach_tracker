@@ -1403,7 +1403,9 @@ function renderCommsTab() {
   body.innerHTML = commsData.map(c => {
     const mobile = c.customer_mobile || '—';
     const mobileLink = c.customer_mobile ? `<a href="tel:${c.customer_mobile}" style="color:var(--pink);font-weight:600;text-decoration:none">${c.customer_mobile}</a>` : '—';
-    const payoutLink = c.refund_payout_link ? `<a href="${c.refund_payout_link}" target="_blank" class="btn btn-primary btn-xs" onclick="event.stopPropagation()">View Payout</a>` : '<span style="color:var(--text-3)">—</span>';
+    const payoutLink = c.refund_payout_link
+      ? `<div style="display:flex;gap:4px;align-items:center"><a href="${c.refund_payout_link}" target="_blank" class="btn btn-primary btn-xs" onclick="event.stopPropagation()">View</a><button class="btn btn-outline btn-xs" onclick="copyPayout('${c.refund_payout_link}',event)" title="Copy link">Copy</button></div>`
+      : '<span style="color:var(--text-3)">—</span>';
     const amt = c.extra_amount ? `<strong style="color:var(--pink)">\u20B9${c.extra_amount}</strong>` : '—';
     return `<tr>
       <td class="check-col"><input type="checkbox" class="comms-chk" value="${c.ticket_id}" ${commsSelected.has(c.ticket_id)?'checked':''} onchange="commsHandleChk(this)"/></td>
@@ -1448,6 +1450,11 @@ function commsHandleChk(chk) {
 
 function commsSelectAll(checked) {
   document.querySelectorAll('.comms-chk').forEach(chk => { chk.checked = checked; commsHandleChk(chk); });
+}
+
+function copyPayout(link, evt) {
+  if (evt) evt.stopPropagation();
+  navigator.clipboard.writeText(link).then(() => toast('Payout link copied!', 'success')).catch(() => toast('Copy failed', 'error'));
 }
 
 async function loadCommsBadge() {
