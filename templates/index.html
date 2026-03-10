@@ -593,8 +593,49 @@
       <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">⬇ Penalty CSV (Comms Done)</button>
       <input type="file" id="penaltyUploadInput" accept=".csv" style="display:none" onchange="handlePenaltyUpload(this)"/>
       <button class="btn btn-info btn-sm" onclick="document.getElementById('penaltyUploadInput').click()">⬆ Upload Penalty Result</button>
+      <span class="action-label" style="margin-left:12px">Partner Email</span>
+      <button class="btn btn-outline btn-sm" onclick="showB2EmailComposer()">Compose FP2 Email</button>
       <div class="spacer"></div>
       <span style="font-size:11px;color:var(--text-3)">📬 Slack digest every 30 min</span>
+    </div>
+
+    <!-- FP2 Email Composer (hidden) -->
+    <div id="b2EmailComposer" style="display:none;margin-bottom:16px">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:14px">FP2 — Extra Cash Partner Email</h3>
+        <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+          <div><span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3)">Selected Cases:</span> <strong id="b2ec-count" style="color:var(--pink);font-size:18px">0</strong></div>
+          <div style="font-size:12px;color:var(--text-2)">Fundamental Principle 2 — Do Not Collect Extra Money from Wiom Users</div>
+        </div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Proof Variables</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px" id="b2VarToggles"></div>
+        <div class="var-grid" id="b2VarGrid" style="margin-bottom:14px"></div>
+        <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="fg"><label>Language</label>
+            <select id="b2ec-lang" onchange="previewB2Email()">
+              <option value="both">Both (Hindi + English)</option>
+              <option value="hi">Hindi Only</option>
+              <option value="en">English Only</option>
+            </select>
+          </div>
+          <div class="fg"><label>Test Email (optional)</label>
+            <input type="email" id="b2ec-test-email" placeholder="your@email.com for testing"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-outline" onclick="previewB2Email()">Preview</button>
+          <button class="btn btn-info" onclick="sendB2Email(true)" id="b2TestSendBtn">Send Test</button>
+          <button class="btn btn-primary" onclick="sendB2Email(false)" id="b2RealSendBtn">Send to Partners</button>
+          <button class="btn btn-outline" onclick="document.getElementById('b2EmailComposer').style.display='none'">Close</button>
+        </div>
+        <div id="b2EmailPreview" style="display:none;margin-top:14px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Email Preview</div>
+          <div class="email-preview">
+            <div class="ep-subject" id="b2ep-subject"></div>
+            <div class="ep-body" id="b2ep-body"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Filter bar -->
@@ -1465,6 +1506,20 @@ async function loadCommsBadge() {
   badge.textContent = count;
 }
 
+// ── Fraud flag ────────────────────────────────────────────────────────────────
+let repeatCustomers = {};
+async function loadRepeatCustomers() {
+  try {
+    const data = await api('GET', '/api/cases/repeat-customers');
+    if (data) repeatCustomers = data;
+  } catch(e) {}
+}
+function fraudFlag(c) {
+  const mob = (c.customer_mobile||'').trim();
+  if (mob && repeatCustomers[mob]) return `<span style="background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px" title="Customer flagged: ${repeatCustomers[mob]} cases">FLAGGED</span>`;
+  return '';
+}
+
 async function loadSummary() {
   const s = await api('GET', '/api/cases/summary');
   document.getElementById('k-total').textContent    = s.total ?? '—';
@@ -1601,7 +1656,7 @@ function caseRowInstall(c, dayKey) {
     <td class="check-col" onclick="event.stopPropagation()"><input type="checkbox" class="row-chk" value="${tid}" ${selectedCases.has(tid)?'checked':''} onchange="handleChk(this)"/></td>
     <td style="font-size:12px;white-space:nowrap">${dt}</td>
     <td><code style="font-size:11px">${tid.slice(-8)}</code></td>
-    <td>${c.customer_mobile||'—'}</td>
+    <td>${c.customer_mobile||'—'}${fraudFlag(c)}</td>
     <td style="max-width:130px">${c.current_partner_name||'—'}</td>
     <td style="max-width:120px;font-size:12px">${c.zone||'—'}</td>
     <td>${amtHtml(c)}</td>
@@ -1622,7 +1677,7 @@ function caseRowOther(c, dayKey) {
     <td class="check-col" onclick="event.stopPropagation()"><input type="checkbox" class="row-chk" value="${tid}" ${selectedCases.has(tid)?'checked':''} onchange="handleChk(this)"/></td>
     <td style="font-size:12px;white-space:nowrap">${dt}</td>
     <td><code style="font-size:11px">${tid.slice(-8)}</code></td>
-    <td>${c.customer_mobile||'—'}</td>
+    <td>${c.customer_mobile||'—'}${fraudFlag(c)}</td>
     <td style="max-width:130px">${c.current_partner_name||'—'}</td>
     <td style="max-width:120px;font-size:12px">${c.zone||'—'}</td>
     <td>${amtHtml(c)}</td>
@@ -1878,6 +1933,65 @@ function selectDb(id, name, engine) {
   toast(`Selected #${id} — ${name}`, 'success');
 }
 
+// ── FP2 Email Composer ────────────────────────────────────────────────────────
+let b2TemplateInfo = null;
+
+async function showB2EmailComposer() {
+  if (!selectedCases.size) { toast('Select cases first', 'error'); return; }
+  document.getElementById('b2EmailComposer').style.display = '';
+  document.getElementById('b2ec-count').textContent = selectedCases.size;
+  if (!b2TemplateInfo) {
+    b2TemplateInfo = await api('GET', '/api/breach2/template');
+    if (!b2TemplateInfo) return;
+  }
+  const toggles = document.getElementById('b2VarToggles');
+  const grid = document.getElementById('b2VarGrid');
+  toggles.innerHTML = '';
+  grid.innerHTML = '';
+  Object.entries(b2TemplateInfo.proof_variables).forEach(([k, v]) => {
+    toggles.innerHTML += `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;padding:8px 14px;border:2px solid var(--border);border-radius:8px;background:white">
+      <input type="checkbox" class="b2-var-chk" value="${k}" checked onchange="previewB2Email()" style="accent-color:var(--pink)"/> ${v.label}
+    </label>`;
+    grid.innerHTML += `<div class="fg"><label>${v.label}</label><input type="text" class="b2-var-val" data-var="${k}" placeholder="Auto-filled from case" oninput="previewB2Email()"/></div>`;
+  });
+  document.getElementById('b2EmailComposer').scrollIntoView({behavior:'smooth'});
+  previewB2Email();
+}
+
+async function previewB2Email() {
+  const lang = document.getElementById('b2ec-lang').value;
+  const selected = [...document.querySelectorAll('.b2-var-chk:checked')].map(x => x.value);
+  const vals = {};
+  document.querySelectorAll('.b2-var-val').forEach(el => { if (el.value) vals[el.dataset.var] = el.value; });
+  const r = await api('POST', '/api/breach2/preview-email', { language: lang, selected_vars: selected, values: vals });
+  if (!r || r.error) return;
+  document.getElementById('b2EmailPreview').style.display = '';
+  document.getElementById('b2ep-subject').textContent = r.subject;
+  document.getElementById('b2ep-body').innerHTML = r.body_html;
+}
+
+async function sendB2Email(isTest) {
+  const tids = [...selectedCases];
+  if (!tids.length) { toast('Select cases first', 'error'); return; }
+  const lang = document.getElementById('b2ec-lang').value;
+  const selected = [...document.querySelectorAll('.b2-var-chk:checked')].map(x => x.value);
+  const vals = {};
+  document.querySelectorAll('.b2-var-val').forEach(el => { if (el.value) vals[el.dataset.var] = el.value; });
+  const testEmail = document.getElementById('b2ec-test-email').value.trim();
+  if (isTest && !testEmail) { toast('Enter a test email', 'error'); return; }
+  if (!isTest && !confirm(`Send FP2 emails for ${tids.length} case(s)? Cannot be undone.`)) return;
+  const btn = isTest ? document.getElementById('b2TestSendBtn') : document.getElementById('b2RealSendBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await api('POST', '/api/breach2/send-email', {
+      ticket_ids: tids, language: lang, selected_vars: selected, values: vals,
+      test_email: isTest ? testEmail : '',
+    });
+    if (r) toast(`${r.sent}/${r.total} emails sent${isTest?' (TEST)':''}`, r.sent === r.total ? 'success' : 'error');
+  } catch(e) { toast('Send error: '+e.message, 'error'); }
+  btn.disabled = false; btn.textContent = isTest ? 'Send Test' : 'Send to Partners';
+}
+
 // ── SSE ───────────────────────────────────────────────────────────────────────
 let _sse=null, _sseR=0;
 function connectSSE() {
@@ -1916,6 +2030,7 @@ async function init() {
   loadSummary();
   loadZones();
   loadCommsBadge();
+  loadRepeatCustomers();
   setInterval(loadSummary, 30000);
 }
 init();
