@@ -520,21 +520,41 @@ def upload_refund_status():
 
 @app.route("/api/upload/penalty-status", methods=["POST"])
 def upload_penalty_status():
-    import csv
-    import io
     f = request.files.get("file")
     if not f:
         return jsonify({"error": "No file uploaded"}), 400
-    try:
-        text = f.read().decode("utf-8-sig")
-    except Exception:
-        return jsonify({"error": "Could not read file as UTF-8"}), 400
-    reader = csv.DictReader(io.StringIO(text))
+
+    rows = []
+    fname = (f.filename or "").lower()
+    if fname.endswith(".xlsx") or fname.endswith(".xls"):
+        # Excel upload
+        from openpyxl import load_workbook
+        import io
+        wb = load_workbook(io.BytesIO(f.read()), read_only=True)
+        ws = wb.active
+        headers = [str(c.value or "").strip() for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            rows.append(dict(zip(headers, row)))
+        wb.close()
+    else:
+        # CSV fallback
+        import csv, io
+        try:
+            text = f.read().decode("utf-8-sig")
+        except Exception:
+            return jsonify({"error": "Could not read file"}), 400
+        rows = list(csv.DictReader(io.StringIO(text)))
+
     matched = []
     unmatched = []
-    for row in reader:
-        partner_id = (row.get("Partner Id") or "").strip()
+    for row in rows:
+        partner_id = str(row.get("AccountId") or row.get("Partner Id") or "").strip()
         if not partner_id:
+            continue
+        # Skip rows where Process Status is not "Yes"
+        status = str(row.get("Process Status") or "").strip().lower()
+        if status and status != "yes":
+            unmatched.append({"partner_id": partner_id, "reason": row.get("Reason", "")})
             continue
         result = sheets_db.mark_penalty_by_upload(partner_id)
         if result["matched"]:
