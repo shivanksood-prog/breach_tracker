@@ -536,85 +536,95 @@ def _body_to_html(body: str) -> str:
     return body_html
 
 
-def send_email(to_email: str, subject: str, body_text: str, body_html: str,
-               from_email: str = None, smtp_host: str = None, smtp_port: int = None,
-               smtp_user: str = None, smtp_pass: str = None) -> dict:
-    """Send email via SMTP. Returns {"ok": bool, "error": str|None}."""
-    cfg = config.load()
-    smtp_host = smtp_host or cfg.get("smtp_host", "smtp.gmail.com")
-    smtp_port = smtp_port or int(cfg.get("smtp_port", 587))
-    smtp_user = smtp_user or cfg.get("smtp_user", "")
-    smtp_pass = smtp_pass or cfg.get("smtp_password", "")
-    from_email = from_email or cfg.get("smtp_from_email", smtp_user)
-
-    if not smtp_user or not smtp_pass:
-        return {"ok": False, "error": "SMTP credentials not configured. Go to Settings."}
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"WIOM System Notice : Immediate Review Required <{from_email}>"
-    msg["To"] = to_email
-
-    msg.attach(MIMEText(body_text, "plain", "utf-8"))
-    msg.attach(MIMEText(body_html, "html", "utf-8"))
-
-    # Try SMTP first, fall back to Gmail API if SMTP is blocked (e.g. Railway)
-    try:
-        if smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) as server:
-                server.login(smtp_user, smtp_pass)
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_pass)
-                server.send_message(msg)
-        return {"ok": True}
-    except Exception as smtp_err:
-        err_str = str(smtp_err)
-        # If SMTP connection failed (blocked port, network unreachable), try Gmail API
-        if "unreachable" in err_str.lower() or "timed out" in err_str.lower() or "errno" in err_str.lower() or "refused" in err_str.lower():
-            try:
-                return _send_via_gmail_api(smtp_user, smtp_pass, msg)
-            except Exception as e2:
-                return {"ok": False, "error": f"SMTP failed ({err_str}). Gmail API fallback also failed: {e2}"}
-        return {"ok": False, "error": err_str}
-
-
-def _send_via_gmail_api(user: str, app_password: str, msg: MIMEMultipart) -> dict:
-    """Send email via Gmail API using app password (HTTPS, no SMTP port needed)."""
-    import google.auth.transport.requests
-    from google.oauth2.credentials import Credentials
-
-    # Use XOAUTH2 via Gmail API REST endpoint with app password basic auth
-    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-    # Gmail API with app password doesn't work directly — use Google SMTP relay over submission port
-    # Alternative: send via requests to a simple relay
-    # Simplest: use smtplib with timeout retry on different ports
-    # Actually: use Gmail's API with service account
-
-    # Use the Google service account for Gmail API
+def _get_service_account_info():
+    """Load Google service account credentials from env var or file."""
     import os
     from pathlib import Path
     sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-    sa_file = Path(__file__).parent / "service_account.json"
-
     if sa_json:
-        info = json.loads(sa_json)
-    elif sa_file.exists():
+        return json.loads(sa_json)
+    sa_file = Path(__file__).parent / "service_account.json"
+    if sa_file.exists():
         with open(sa_file) as f:
-            info = json.load(f)
-    else:
-        return {"ok": False, "error": "No service account available for Gmail API fallback"}
+            return json.load(f)
+    return None
+
+
+def _send_via_gmail_api(from_email: str, msg: MIMEMultipart) -> dict:
+    """Send email via Gmail API using service account with domain-wide delegation."""
+    info = _get_service_account_info()
+    if not info:
+        return {"ok": False, "error": "No service account configured for Gmail API"}
 
     from google.oauth2 import service_account as sa
     from googleapiclient.discovery import build
 
     SCOPES = ['https://www.googleapis.com/auth/gmail.send']
     creds = sa.Credentials.from_service_account_info(info, scopes=SCOPES)
-    delegated = creds.with_subject(user)
+    delegated = creds.with_subject(from_email)
 
-    service = build('gmail', 'v1', credentials=delegated)
-    body = {'raw': raw}
-    service.users().messages().send(userId='me', body=body).execute()
+    service = build('gmail', 'v1', credentials=delegated, cache_discovery=False)
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    service.users().messages().send(userId='me', body={'raw': raw}).execute()
     return {"ok": True}
+
+
+def _send_via_smtp(smtp_host: str, smtp_port: int, smtp_user: str,
+                   smtp_pass: str, msg: MIMEMultipart) -> dict:
+    """Send email via SMTP (works locally, blocked on Railway)."""
+    if smtp_port == 465:
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) as server:
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+    else:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+    return {"ok": True}
+
+
+def send_email(to_email: str, subject: str, body_text: str, body_html: str,
+               from_email: str = None, smtp_host: str = None, smtp_port: int = None,
+               smtp_user: str = None, smtp_pass: str = None) -> dict:
+    """Send email via Gmail API (primary) with SMTP fallback.
+    Returns {"ok": bool, "error": str|None}."""
+    cfg = config.load()
+    smtp_host = smtp_host or cfg.get("smtp_host", "smtp.gmail.com")
+    smtp_port = smtp_port or int(cfg.get("smtp_port", 587))
+    smtp_user = smtp_user or cfg.get("smtp_user", "")
+    smtp_pass = smtp_pass or cfg.get("smtp_password", "")
+    from_email = from_email or cfg.get("smtp_from_email") or smtp_user
+
+    if not from_email:
+        return {"ok": False, "error": "No sender email configured. Go to Settings."}
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"WIOM System Notice : Immediate Review Required <{from_email}>"
+    msg["To"] = to_email
+    msg.attach(MIMEText(body_text, "plain", "utf-8"))
+    msg.attach(MIMEText(body_html, "html", "utf-8"))
+
+    # Try Gmail API first (works on Railway where SMTP is blocked)
+    sa_info = _get_service_account_info()
+    if sa_info:
+        try:
+            return _send_via_gmail_api(from_email, msg)
+        except Exception as api_err:
+            gmail_err = str(api_err)
+            # If Gmail API fails, fall back to SMTP
+            if smtp_user and smtp_pass:
+                try:
+                    return _send_via_smtp(smtp_host, smtp_port, smtp_user, smtp_pass, msg)
+                except Exception as smtp_err:
+                    return {"ok": False, "error": f"Gmail API failed ({gmail_err}). SMTP fallback also failed: {smtp_err}"}
+            return {"ok": False, "error": f"Gmail API failed: {gmail_err}"}
+
+    # No service account — try SMTP directly
+    if not smtp_user or not smtp_pass:
+        return {"ok": False, "error": "No service account and no SMTP credentials configured. Go to Settings."}
+    try:
+        return _send_via_smtp(smtp_host, smtp_port, smtp_user, smtp_pass, msg)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
