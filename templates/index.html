@@ -658,7 +658,7 @@
       <table>
         <thead><tr>
           <th class="check-col"><input type="checkbox" id="chk-other-all" onchange="selectAll('other',this.checked)"/></th>
-          <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Date</th><th>Kapture ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
           <th>Amount</th><th>State</th><th>Actions</th>
         </tr></thead>
         <tbody id="otherBody"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
@@ -671,7 +671,7 @@
       <table>
         <thead><tr>
           <th class="check-col"><input type="checkbox" id="chk-install-all" onchange="selectAll('install',this.checked)"/></th>
-          <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Date</th><th>Kapture ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
           <th>Amount</th><th>Emp Role</th><th>Technician</th><th>State</th><th>Actions</th>
         </tr></thead>
         <tbody id="installBody"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
@@ -1657,7 +1657,7 @@ function caseRowInstall(c, dayKey) {
   return `<tr class="dg-${dayKey}" data-tid="${tid}" data-section="install">
     <td class="check-col" onclick="event.stopPropagation()"><input type="checkbox" class="row-chk" value="${tid}" ${selectedCases.has(tid)?'checked':''} onchange="handleChk(this)"/></td>
     <td style="font-size:12px;white-space:nowrap">${dt}</td>
-    <td><code style="font-size:11px">${tid.slice(-8)}</code></td>
+    <td><code style="font-size:11px">${c.kapture_ticket_id||tid.slice(-8)}</code></td>
     <td>${c.customer_mobile||'—'}${fraudFlag(c)}</td>
     <td style="max-width:130px">${c.current_partner_name||'—'}</td>
     <td style="max-width:120px;font-size:12px">${c.zone||'—'}</td>
@@ -1678,7 +1678,7 @@ function caseRowOther(c, dayKey) {
   return `<tr class="dg-${dayKey}" data-tid="${tid}" data-section="other">
     <td class="check-col" onclick="event.stopPropagation()"><input type="checkbox" class="row-chk" value="${tid}" ${selectedCases.has(tid)?'checked':''} onchange="handleChk(this)"/></td>
     <td style="font-size:12px;white-space:nowrap">${dt}</td>
-    <td><code style="font-size:11px">${tid.slice(-8)}</code></td>
+    <td><code style="font-size:11px">${c.kapture_ticket_id||tid.slice(-8)}</code></td>
     <td>${c.customer_mobile||'—'}${fraudFlag(c)}</td>
     <td style="max-width:130px">${c.current_partner_name||'—'}</td>
     <td style="max-width:120px;font-size:12px">${c.zone||'—'}</td>
