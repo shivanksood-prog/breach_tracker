@@ -986,7 +986,7 @@ async function handlePenaltyUpload(input) {
 // ═══════════════════════════════════════════════════════════════════════════════
 let b1Data = [];
 async function loadB1() {
-  const data = await api('GET', '/api/breach1/cases');
+  const data = await apiGet('/api/breach1/cases');
   b1Data = Array.isArray(data) ? data : [];
   renderB1();
 }
@@ -1024,7 +1024,7 @@ function renderB1() {
 // ═══════════════════════════════════════════════════════════════════════════════
 let b4Data = [];
 async function loadB4() {
-  const data = await api('GET', '/api/breach4/cases');
+  const data = await apiGet('/api/breach4/cases');
   b4Data = Array.isArray(data) ? data : [];
   renderB4();
 }
