@@ -93,9 +93,9 @@ def generate_penalty_xlsx(cases: list) -> bytes:
     # Data rows
     row_idx = 2
     for pid, data in partners.items():
-        # AccountId as integer
+        # AccountId as integer (Sheets may return "12345.0")
         try:
-            pid_int = int(pid)
+            pid_int = int(float(pid))
         except (ValueError, TypeError):
             pid_int = pid
         ws.cell(row=row_idx, column=1, value=pid_int).border = thin_border
