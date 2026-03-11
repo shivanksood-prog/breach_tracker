@@ -536,37 +536,51 @@ def _body_to_html(body: str) -> str:
     return body_html
 
 
-def _get_service_account_info():
-    """Load Google service account credentials from env var or file."""
+import os
+
+GMAIL_OAUTH2 = {
+    "client_id": os.environ.get("GMAIL_CLIENT_ID", ""),
+    "client_secret": os.environ.get("GMAIL_CLIENT_SECRET", ""),
+}
+
+
+def _get_gmail_refresh_token():
+    """Get Gmail OAuth2 refresh token from env var or config."""
     import os
-    from pathlib import Path
-    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-    if sa_json:
-        return json.loads(sa_json)
-    sa_file = Path(__file__).parent / "service_account.json"
-    if sa_file.exists():
-        with open(sa_file) as f:
-            return json.load(f)
-    return None
+    token = os.environ.get("GMAIL_REFRESH_TOKEN")
+    if token:
+        return token
+    cfg = config.load()
+    return cfg.get("gmail_refresh_token", "")
 
 
-def _send_via_gmail_api(from_email: str, msg: MIMEMultipart) -> dict:
-    """Send email via Gmail API using service account with domain-wide delegation."""
-    info = _get_service_account_info()
-    if not info:
-        return {"ok": False, "error": "No service account configured for Gmail API"}
+def _send_via_gmail_oauth2(msg: MIMEMultipart) -> dict:
+    """Send email via Gmail API using OAuth2 refresh token (works on Railway)."""
+    refresh_token = _get_gmail_refresh_token()
+    if not refresh_token:
+        return {"ok": False, "error": "No Gmail refresh token configured"}
 
-    from google.oauth2 import service_account as sa
-    from googleapiclient.discovery import build
+    # Get access token
+    resp = requests.post("https://oauth2.googleapis.com/token", data={
+        "client_id": GMAIL_OAUTH2["client_id"],
+        "client_secret": GMAIL_OAUTH2["client_secret"],
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+    })
+    token_data = resp.json()
+    if "access_token" not in token_data:
+        return {"ok": False, "error": f"OAuth2 token refresh failed: {token_data.get('error_description', token_data)}"}
 
-    SCOPES = ['https://www.googleapis.com/auth/gmail.send']
-    creds = sa.Credentials.from_service_account_info(info, scopes=SCOPES)
-    delegated = creds.with_subject(from_email)
-
-    service = build('gmail', 'v1', credentials=delegated, cache_discovery=False)
+    # Send via Gmail API
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-    service.users().messages().send(userId='me', body={'raw': raw}).execute()
-    return {"ok": True}
+    r = requests.post(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+        headers={"Authorization": f"Bearer {token_data['access_token']}", "Content-Type": "application/json"},
+        json={"raw": raw},
+    )
+    if r.status_code == 200:
+        return {"ok": True}
+    return {"ok": False, "error": f"Gmail API send failed ({r.status_code}): {r.text}"}
 
 
 def _send_via_smtp(smtp_host: str, smtp_port: int, smtp_user: str,
@@ -587,17 +601,14 @@ def _send_via_smtp(smtp_host: str, smtp_port: int, smtp_user: str,
 def send_email(to_email: str, subject: str, body_text: str, body_html: str,
                from_email: str = None, smtp_host: str = None, smtp_port: int = None,
                smtp_user: str = None, smtp_pass: str = None) -> dict:
-    """Send email via Gmail API (primary) with SMTP fallback.
+    """Send email via Gmail API OAuth2 (primary) with SMTP fallback.
     Returns {"ok": bool, "error": str|None}."""
     cfg = config.load()
     smtp_host = smtp_host or cfg.get("smtp_host", "smtp.gmail.com")
     smtp_port = smtp_port or int(cfg.get("smtp_port", 587))
     smtp_user = smtp_user or cfg.get("smtp_user", "")
     smtp_pass = smtp_pass or cfg.get("smtp_password", "")
-    from_email = from_email or cfg.get("smtp_from_email") or smtp_user
-
-    if not from_email:
-        return {"ok": False, "error": "No sender email configured. Go to Settings."}
+    from_email = from_email or cfg.get("smtp_from_email") or smtp_user or "partner@wiom.in"
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -606,24 +617,24 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str,
     msg.attach(MIMEText(body_text, "plain", "utf-8"))
     msg.attach(MIMEText(body_html, "html", "utf-8"))
 
-    # Try Gmail API first (works on Railway where SMTP is blocked)
-    sa_info = _get_service_account_info()
-    if sa_info:
-        try:
-            return _send_via_gmail_api(from_email, msg)
-        except Exception as api_err:
-            gmail_err = str(api_err)
-            # If Gmail API fails, fall back to SMTP
-            if smtp_user and smtp_pass:
-                try:
-                    return _send_via_smtp(smtp_host, smtp_port, smtp_user, smtp_pass, msg)
-                except Exception as smtp_err:
-                    return {"ok": False, "error": f"Gmail API failed ({gmail_err}). SMTP fallback also failed: {smtp_err}"}
-            return {"ok": False, "error": f"Gmail API failed: {gmail_err}"}
+    # Try Gmail API OAuth2 first (works on Railway where SMTP is blocked)
+    refresh_token = _get_gmail_refresh_token()
+    if refresh_token:
+        result = _send_via_gmail_oauth2(msg)
+        if result["ok"]:
+            return result
+        # Gmail API failed, try SMTP fallback
+        gmail_err = result.get("error", "")
+        if smtp_user and smtp_pass:
+            try:
+                return _send_via_smtp(smtp_host, smtp_port, smtp_user, smtp_pass, msg)
+            except Exception as smtp_err:
+                return {"ok": False, "error": f"Gmail API failed ({gmail_err}). SMTP fallback also failed: {smtp_err}"}
+        return result
 
-    # No service account — try SMTP directly
+    # No refresh token — try SMTP directly
     if not smtp_user or not smtp_pass:
-        return {"ok": False, "error": "No service account and no SMTP credentials configured. Go to Settings."}
+        return {"ok": False, "error": "No Gmail refresh token and no SMTP credentials configured. Go to Settings."}
     try:
         return _send_via_smtp(smtp_host, smtp_port, smtp_user, smtp_pass, msg)
     except Exception as e:
