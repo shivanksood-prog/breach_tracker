@@ -277,21 +277,21 @@
     <span style="font-size:11px;color:var(--text-3)">Enter the backend URL from Render</span>
   </div>
 
-  <!-- KPI Cards -->
-  <div class="kpi-grid">
-    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="k-total">--</div><div class="kpi-sub">All time</div></div>
-    <div class="kpi-card warn"><div class="kpi-label">Detected</div><div class="kpi-value" id="k-detected">--</div><div class="kpi-sub">Awaiting refund</div></div>
-    <div class="kpi-card ok"><div class="kpi-label">Refunded</div><div class="kpi-value" id="k-refunded">--</div><div class="kpi-sub">Awaiting comms</div></div>
-    <div class="kpi-card pur"><div class="kpi-label">Comms Done</div><div class="kpi-value" id="k-ccomms">--</div><div class="kpi-sub">Awaiting penalty</div></div>
-    <div class="kpi-card blue"><div class="kpi-label">Penalty Done</div><div class="kpi-value" id="k-penalty">--</div><div class="kpi-sub">Complete</div></div>
-    <div class="kpi-card pink"><div class="kpi-label">Total Amount</div><div class="kpi-value" id="k-amount">--</div><div class="kpi-sub">Extra cash taken</div></div>
+  <!-- Visibility Dashboard (top) -->
+  <div class="table-wrap" style="margin-bottom:16px">
+    <table style="font-size:13px">
+      <thead id="visHead"><tr>
+        <th style="text-align:left">Metric</th><th>Today</th><th>Today-1</th><th>Today-2</th>
+        <th>Post Mar 11 (All)</th><th>Pre Mar 11 (PayG Install)</th>
+      </tr></thead>
+      <tbody id="visBody"><tr><td colspan="6" class="loading-state">Loading...</td></tr></tbody>
+    </table>
   </div>
 
   <!-- Sub-tab bar -->
   <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border);background:var(--white);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden">
     <div class="nav-tab active" id="b2sub-cases-tab" onclick="switchB2Sub('cases')" style="border-bottom-width:2px">Cases</div>
     <div class="nav-tab" id="b2sub-comms-tab" onclick="switchB2Sub('comms')" style="border-bottom-width:2px">Customer Comms <span class="nav-badge" id="comms-badge" style="display:none;background:var(--success)">0</span></div>
-    <div class="nav-tab" id="b2sub-vis-tab" onclick="switchB2Sub('visibility')" style="border-bottom-width:2px">Visibility</div>
   </div>
 
   <!-- ── Cases sub-tab ── -->
@@ -410,20 +410,6 @@
     </div>
   </div>
 
-  <!-- ── Visibility Dashboard sub-tab ── -->
-  <div id="b2sub-visibility" style="display:none">
-    <div class="action-bar">
-      <span class="action-label">Visibility Dashboard</span>
-      <div class="spacer"></div>
-      <button class="btn btn-outline btn-sm" onclick="loadVisibility()">Refresh</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead id="visHead"><tr><th>Metric</th><th>Today</th><th>Today-1</th><th>Today-2</th><th>Post Mar 11 (All)</th><th>Pre Mar 11 (PayG Install)</th></tr></thead>
-        <tbody id="visBody"><tr><td colspan="6" class="loading-state">Loading...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
 
 </div><!-- /breach2 -->
 
@@ -843,14 +829,11 @@ const STATE_LABELS = {detected:'Detected',customer_refunded:'Refunded',customer_
 function stateBadge(s) { return `<span class="state-badge big state-${s}"><span class="dot"></span>${STATE_LABELS[s]||s}</span>`; }
 
 async function loadSummary() {
+  // Load visibility matrix at the top
+  loadVisibility();
+  // Nav badge still needs summary
   const s = await apiGet('/api/cases/summary');
   if (!s) return;
-  document.getElementById('k-total').textContent    = s.total ?? '--';
-  document.getElementById('k-detected').textContent = s.by_state?.detected ?? '--';
-  document.getElementById('k-refunded').textContent = s.by_state?.customer_refunded ?? '--';
-  document.getElementById('k-ccomms').textContent   = s.by_state?.customer_comms ?? '--';
-  document.getElementById('k-penalty').textContent  = s.by_state?.partner_penalty ?? '--';
-  document.getElementById('k-amount').textContent   = s.total_amount ? '\u20B9'+Number(s.total_amount).toLocaleString('en-IN') : '--';
   const det = s.by_state?.detected ?? 0;
   const nb = document.getElementById('b2-badge');
   nb.style.display = det > 0 ? 'inline' : 'none';
@@ -893,9 +876,7 @@ function switchB2Sub(sub) {
   document.getElementById('b2sub-visibility').style.display = sub === 'visibility' ? '' : 'none';
   document.getElementById('b2sub-cases-tab').classList.toggle('active', sub === 'cases');
   document.getElementById('b2sub-comms-tab').classList.toggle('active', sub === 'comms');
-  document.getElementById('b2sub-vis-tab').classList.toggle('active', sub === 'visibility');
   if (sub === 'comms') loadCommsTab();
-  if (sub === 'visibility') loadVisibility();
 }
 
 async function loadCommsTab() {
