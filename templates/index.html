@@ -801,8 +801,25 @@ function switchTab(t) {
 async function api(method, path, body) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
   if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(path, opts);
-  return r.json();
+  try {
+    const r = await fetch(path, opts);
+    if (!r.ok) {
+      const txt = await r.text();
+      console.error(`API ${r.status} ${path}:`, txt.slice(0,200));
+      toast(`API error (${r.status}) on ${path}`, 'error');
+      return r.status === 401 ? [] : {};
+    }
+    const ct = r.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      console.error(`API non-JSON response on ${path}:`, ct);
+      return {};
+    }
+    return r.json();
+  } catch(e) {
+    console.error(`API fetch error ${path}:`, e);
+    toast(`API error: ${e.message}`, 'error');
+    return {};
+  }
 }
 
 let _tTimer;
