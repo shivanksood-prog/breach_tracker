@@ -12,7 +12,9 @@ import config
 import actions
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}},
+     allow_headers=["Content-Type", "Authorization"],
+     supports_credentials=True)
 db.init_db()
 db._migrate()
 
@@ -44,10 +46,13 @@ def require_login():
         return  # Let Flask-CORS handle preflight
     auth = request.authorization
     if not auth or not check_auth(auth.username, auth.password):
-        return Response(
-            "Login required.", 401,
-            {"WWW-Authenticate": 'Basic realm="WIOM Breach Tracker"'},
-        )
+        resp = Response("Login required.", 401,
+                        {"WWW-Authenticate": 'Basic realm="WIOM Breach Tracker"'})
+        # Add CORS headers so cross-origin callers can read the error
+        origin = request.headers.get('Origin', '*')
+        resp.headers['Access-Control-Allow-Origin'] = origin
+        resp.headers['Access-Control-Allow-Credentials'] = 'true'
+        return resp
 
 # ── SSE broadcast hub ─────────────────────────────────────────────────────────
 _sse_clients: list[queue.Queue] = []
