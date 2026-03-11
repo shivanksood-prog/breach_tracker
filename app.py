@@ -173,16 +173,83 @@ def _run_sync(cfg: dict) -> dict:
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
 
+    def _sync_b1b4():
+        """Sync B1/B4 from Google Sheets into SQLite."""
+        try:
+            from google_sheets import fetch_disintermediation_cases, get_all_partner_emails, fetch_fp4_cases
+        except Exception as e:
+            app.logger.error(f"B1/B4 import error: {e}")
+            return
+        # B1
+        try:
+            cases = fetch_disintermediation_cases()
+            emails = get_all_partner_emails()
+            cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
+            for c in cases:
+                partner = (c.get("PARTNER_NAME") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "lng_nas_id": c.get("LNG_NAS_ID", ""), "customer_mobile": c.get("MOBILE", ""),
+                    "expiry_dt": c.get("EXPIRY_DT", ""), "city": c.get("CITY", ""),
+                    "mis_city": c.get("MIS_CITY", ""), "zone": c.get("ZONE", ""),
+                    "partner_name": partner, "tenure": c.get("TENURE", ""),
+                    "r_oct": c.get("R total (Oct)", ""), "r_nov": c.get("R total (Nov)", ""),
+                    "r_dec": c.get("R total (Dec)", ""), "r_jan": c.get("R total (Jan)", ""),
+                    "risk_score": c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", ""),
+                    "partner_status": c.get("Status", ""), "connected": c.get("Connected", ""),
+                    "calling_remarks": c.get("Calling Remarks", ""),
+                    "disintermediation": c.get("Disintermediation", ""),
+                    "call_recording": c.get("Call Recording", ""), "called_by": c.get("Called By", ""),
+                    "call_timestamp": c.get("Call Timestamp (Date)", ""),
+                    "calling_status": c.get("Calling Status", ""),
+                    "partner_email": email_info.get("email", ""),
+                }
+                db.upsert_breach1_case(data)
+            app.logger.info(f"B1 sync: {len(cases)} cases")
+        except Exception as e:
+            app.logger.error(f"B1 sync error: {e}")
+        # B4
+        try:
+            cases = fetch_fp4_cases()
+            emails = get_all_partner_emails()
+            for c in cases:
+                partner_name = (c.get("Partner Name") or "").strip()
+                partner_id = (c.get("Partner Id") or "").strip()
+                email_info = emails.get(partner_name.lower(), {})
+                data = {
+                    "partner_id": partner_id, "partner_name": partner_name,
+                    "customer_details": (c.get("Customer Details") or "").strip(),
+                    "principle_broken": (c.get("Principle Broken") or "").strip(),
+                    "device_id": (c.get("Device Id") or "").strip(),
+                    "date_reported": (c.get("Date Reported") or "").strip(),
+                    "reporting_channel": (c.get("Reporting Channel") or "").strip(),
+                    "penalty_amount": (c.get("Penalty Amount") or "").strip(),
+                    "penalty_done": (c.get("Penalty Done") or "").strip(),
+                    "penalty_done_date": (c.get("Penalty Done Date") or "").strip(),
+                    "partner_email_comms": (c.get("Partner Email Comms Done") or "").strip(),
+                    "email_date": (c.get("Email Date") or "").strip(),
+                    "whatsapp_comms": (c.get("Partner Text/Whatsapp Comms Done") or "").strip(),
+                    "whatsapp_date": (c.get("Whatsapp Date") or "").strip(),
+                    "partner_mobile": (c.get("Partner Mobile") or "").strip(),
+                    "link": (c.get("Link") or "").strip(),
+                    "comments": (c.get("Comments") or "").strip(),
+                    "partner_email": email_info.get("email", ""),
+                }
+                if not data["partner_id"] and not data["partner_name"] and not data["device_id"]:
+                    continue
+                db.upsert_breach4_case(data)
+            app.logger.info(f"B4 sync: {len(cases)} cases")
+        except Exception as e:
+            app.logger.error(f"B4 sync error: {e}")
+
     def _auto_sync():
         cfg = config.load()
-        if not cfg.get("metabase_url") or not (cfg.get("metabase_api_key") or cfg.get("metabase_username")):
-            return
-        if not cfg.get("metabase_database_id"):
-            return
-        try:
-            _run_sync(cfg)
-        except Exception as e:
-            app.logger.error(f"Auto-sync error: {e}")
+        if cfg.get("metabase_url") and (cfg.get("metabase_api_key") or cfg.get("metabase_username")) and cfg.get("metabase_database_id"):
+            try:
+                _run_sync(cfg)
+            except Exception as e:
+                app.logger.error(f"Auto-sync B2 error: {e}")
+        _sync_b1b4()
 
     def _slack_pending_digest():
         cfg     = config.load()
@@ -212,6 +279,8 @@ try:
     scheduler = BackgroundScheduler(daemon=True)
     scheduler.add_job(_auto_sync,            "interval", minutes=2,  id="auto_sync")
     scheduler.add_job(_slack_pending_digest, "interval", minutes=30, id="slack_digest")
+    # Run B1/B4 sync immediately on startup so SQLite is populated after deploy
+    scheduler.add_job(_sync_b1b4, id="b1b4_startup")
     scheduler.start()
 except ImportError:
     pass
