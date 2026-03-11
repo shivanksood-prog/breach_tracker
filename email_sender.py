@@ -570,14 +570,15 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str,
                 server.login(smtp_user, smtp_pass)
                 server.send_message(msg)
         return {"ok": True}
-    except OSError:
-        # SMTP port blocked — fall back to Gmail API via HTTPS
-        try:
-            return _send_via_gmail_api(smtp_user, smtp_pass, msg)
-        except Exception as e2:
-            return {"ok": False, "error": f"SMTP blocked, Gmail API fallback failed: {e2}"}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception as smtp_err:
+        err_str = str(smtp_err)
+        # If SMTP connection failed (blocked port, network unreachable), try Gmail API
+        if "unreachable" in err_str.lower() or "timed out" in err_str.lower() or "errno" in err_str.lower() or "refused" in err_str.lower():
+            try:
+                return _send_via_gmail_api(smtp_user, smtp_pass, msg)
+            except Exception as e2:
+                return {"ok": False, "error": f"SMTP failed ({err_str}). Gmail API fallback also failed: {e2}"}
+        return {"ok": False, "error": err_str}
 
 
 def _send_via_gmail_api(user: str, app_password: str, msg: MIMEMultipart) -> dict:
