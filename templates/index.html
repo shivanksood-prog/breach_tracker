@@ -580,6 +580,7 @@
   <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border);background:var(--white);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden">
     <div class="nav-tab active" id="b2sub-cases-tab" onclick="switchB2Sub('cases')" style="border-bottom-width:2px">Cases</div>
     <div class="nav-tab" id="b2sub-comms-tab" onclick="switchB2Sub('comms')" style="border-bottom-width:2px">Customer Comms <span class="nav-badge" id="comms-badge" style="display:none;background:var(--success)">0</span></div>
+    <div class="nav-tab" id="b2sub-vis-tab" onclick="switchB2Sub('visibility')" style="border-bottom-width:2px">Visibility</div>
   </div>
 
   <!-- ── Cases sub-tab ── -->
@@ -691,10 +692,25 @@
       <table>
         <thead><tr>
           <th class="check-col"><input type="checkbox" id="comms-chk-all" onchange="commsSelectAll(this.checked)"/></th>
-          <th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
-          <th>Amount</th><th>Payout Link</th><th>Refunded At</th><th>Actions</th>
+          <th>Kapture ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Amount</th><th>Payout Link</th><th>Refunded At</th><th>Notes</th><th>Actions</th>
         </tr></thead>
-        <tbody id="commsBody"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
+        <tbody id="commsBody"><tr><td colspan="10" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Visibility Dashboard sub-tab ── -->
+  <div id="b2sub-visibility" style="display:none">
+    <div class="action-bar">
+      <span class="action-label">Visibility Dashboard</span>
+      <div class="spacer"></div>
+      <button class="btn btn-outline btn-sm" onclick="loadVisibility()">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead id="visHead"><tr><th>Metric</th><th>Today</th><th>Today-1</th><th>Today-2</th><th>Post Mar 11 (All)</th><th>Pre Mar 11 (PayG Install)</th></tr></thead>
+        <tbody id="visBody"><tr><td colspan="6" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1443,9 +1459,12 @@ let commsSelected = new Set();
 function switchB2Sub(sub) {
   document.getElementById('b2sub-cases').style.display = sub === 'cases' ? '' : 'none';
   document.getElementById('b2sub-comms').style.display = sub === 'comms' ? '' : 'none';
+  document.getElementById('b2sub-visibility').style.display = sub === 'visibility' ? '' : 'none';
   document.getElementById('b2sub-cases-tab').classList.toggle('active', sub === 'cases');
   document.getElementById('b2sub-comms-tab').classList.toggle('active', sub === 'comms');
+  document.getElementById('b2sub-vis-tab').classList.toggle('active', sub === 'visibility');
   if (sub === 'comms') loadCommsTab();
+  if (sub === 'visibility') loadVisibility();
 }
 
 async function loadCommsTab() {
@@ -1456,33 +1475,36 @@ async function loadCommsTab() {
 function renderCommsTab() {
   const body = document.getElementById('commsBody');
   if (!commsData || !commsData.length) {
-    body.innerHTML = '<tr><td colspan="9"><div class="empty-state">No cases awaiting customer comms</div></td></tr>';
+    body.innerHTML = '<tr><td colspan="10"><div class="empty-state">No cases awaiting customer comms</div></td></tr>';
     return;
   }
   body.innerHTML = commsData.map(c => {
-    const mobile = c.customer_mobile || '—';
     const mobileLink = c.customer_mobile ? `<a href="tel:${c.customer_mobile}" style="color:var(--pink);font-weight:600;text-decoration:none">${c.customer_mobile}</a>` : '—';
     const payoutLink = c.refund_payout_link
       ? `<div style="display:flex;gap:4px;align-items:center"><a href="${c.refund_payout_link}" target="_blank" class="btn btn-primary btn-xs" onclick="event.stopPropagation()">View</a><button class="btn btn-outline btn-xs" onclick="copyPayout('${c.refund_payout_link}',event)" title="Copy link">Copy</button></div>`
       : '<span style="color:var(--text-3)">—</span>';
     const amt = c.extra_amount ? `<strong style="color:var(--pink)">\u20B9${c.extra_amount}</strong>` : '—';
+    const kid = c.kapture_ticket_id || String(c.ticket_id).slice(-8);
     return `<tr>
       <td class="check-col"><input type="checkbox" class="comms-chk" value="${c.ticket_id}" ${commsSelected.has(c.ticket_id)?'checked':''} onchange="commsHandleChk(this)"/></td>
-      <td><code style="font-size:11px">${String(c.ticket_id).slice(-8)}</code></td>
+      <td><code style="font-size:11px">${kid}</code></td>
       <td>${mobileLink}</td>
       <td style="max-width:130px">${c.current_partner_name||'—'}</td>
       <td style="font-size:12px">${c.zone||'—'}</td>
       <td>${amt}</td>
       <td>${payoutLink}</td>
       <td style="font-size:12px">${(c.customer_refunded_at||'').slice(0,16)||'—'}</td>
+      <td><input type="text" class="comms-note" data-tid="${c.ticket_id}" placeholder="Notes…" style="width:120px;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit"/></td>
       <td><button class="btn btn-success btn-xs" onclick="markCommsDone('${c.ticket_id}')">Comms Done</button></td>
     </tr>`;
   }).join('');
 }
 
 async function markCommsDone(tid) {
+  const noteEl = document.querySelector(`.comms-note[data-tid="${tid}"]`);
+  const notes = noteEl ? noteEl.value.trim() : '';
   toast('Confirming comms…');
-  const r = await api('POST', '/api/cases/'+tid+'/confirm-comms');
+  const r = await api('POST', '/api/cases/'+tid+'/confirm-comms', {notes});
   if (r?.error) { toast(r.error, 'error'); return; }
   toast('Customer comms confirmed', 'success');
   await Promise.all([loadCommsTab(), loadCommsBadge(), loadSummary()]);
@@ -1494,7 +1516,9 @@ async function bulkMarkCommsDone() {
   toast('Confirming comms…');
   let done = 0;
   for (const tid of tids) {
-    const r = await api('POST', '/api/cases/'+tid+'/confirm-comms');
+    const noteEl = document.querySelector(`.comms-note[data-tid="${tid}"]`);
+    const notes = noteEl ? noteEl.value.trim() : '';
+    const r = await api('POST', '/api/cases/'+tid+'/confirm-comms', {notes});
     if (r?.ok) done++;
   }
   toast(`Confirmed comms for ${done} case(s)`, 'success');
@@ -1522,6 +1546,20 @@ async function loadCommsBadge() {
   const count = data ? data.length : 0;
   badge.style.display = count > 0 ? 'inline' : 'none';
   badge.textContent = count;
+}
+
+// ── Visibility Dashboard ─────────────────────────────────────────────────────
+async function loadVisibility() {
+  const body = document.getElementById('visBody');
+  body.innerHTML = '<tr><td colspan="6" class="loading-state">Loading…</td></tr>';
+  const data = await api('GET', '/api/cases/visibility');
+  if (!data || !data.rows) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>'; return; }
+  body.innerHTML = data.rows.map(r => {
+    const isMoney = r.label.startsWith('Total');
+    return `<tr><td style="font-weight:600;white-space:nowrap">${r.label}</td>${r.values.map(v =>
+      `<td style="text-align:right;font-variant-numeric:tabular-nums">${isMoney ? '₹'+Number(v).toLocaleString('en-IN') : v}</td>`
+    ).join('')}</tr>`;
+  }).join('');
 }
 
 // ── Fraud flag ────────────────────────────────────────────────────────────────

@@ -185,10 +185,15 @@ try:
         except Exception as e:
             app.logger.error(f"B1/B4 import error: {e}")
             return
+        # Fetch partner emails once for both B1 and B4
+        try:
+            emails = get_all_partner_emails()
+        except Exception as e:
+            app.logger.error(f"Partner emails fetch error: {e}")
+            emails = {}
         # B1
         try:
             cases = fetch_disintermediation_cases()
-            emails = get_all_partner_emails()
             cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
             for c in cases:
                 partner = (c.get("PARTNER_NAME") or "").strip()
@@ -216,7 +221,6 @@ try:
         # B4
         try:
             cases = fetch_fp4_cases()
-            emails = get_all_partner_emails()
             for c in cases:
                 partner_name = (c.get("Partner Name") or "").strip()
                 partner_id = (c.get("Partner Id") or "").strip()
@@ -281,8 +285,11 @@ try:
         except Exception as e:
             app.logger.error(f"Slack digest error: {e}")
 
+    from datetime import datetime, timedelta
     scheduler = BackgroundScheduler(daemon=True)
-    scheduler.add_job(_auto_sync,            "interval", minutes=2,  id="auto_sync")
+    # Defer first _auto_sync by 2 min so it doesn't overlap with the startup job
+    scheduler.add_job(_auto_sync, "interval", minutes=2, id="auto_sync",
+                      next_run_time=datetime.now() + timedelta(minutes=2))
     scheduler.add_job(_slack_pending_digest, "interval", minutes=30, id="slack_digest")
     # Run B1/B4 sync immediately on startup so SQLite is populated after deploy
     scheduler.add_job(_sync_b1b4, id="b1b4_startup")
@@ -379,7 +386,9 @@ def get_customer_comms():
 
 @app.route("/api/customer-comms/<ticket_id>/log", methods=["POST"])
 def log_comms(ticket_id):
-    ok = sheets_db.advance_state(ticket_id, "customer_comms")
+    body = request.json or {}
+    notes = body.get("notes", "")
+    ok = sheets_db.advance_state(ticket_id, "customer_comms", comms_notes=notes)
     if ok:
         return jsonify({"ok": True, "case": sheets_db.get_case(ticket_id)})
     return jsonify({"error": "Cannot advance state"}), 400
@@ -539,10 +548,19 @@ def upload_penalty_status():
 
 @app.route("/api/cases/<ticket_id>/confirm-comms", methods=["POST"])
 def confirm_comms(ticket_id):
-    ok = sheets_db.advance_state(ticket_id, "customer_comms")
+    body = request.json or {}
+    notes = body.get("notes", "")
+    ok = sheets_db.advance_state(ticket_id, "customer_comms", comms_notes=notes)
     if ok:
         return jsonify({"ok": True, "case": sheets_db.get_case(ticket_id)})
     return jsonify({"error": "Cannot confirm comms for this case"}), 400
+
+
+# ── Visibility Dashboard ──────────────────────────────────────────────────────
+
+@app.route("/api/cases/visibility")
+def visibility_matrix():
+    return jsonify(sheets_db.get_visibility_matrix())
 
 
 # ── Fraud Tracker ─────────────────────────────────────────────────────────────

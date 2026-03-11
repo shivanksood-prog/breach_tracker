@@ -170,6 +170,60 @@
     .config-bar { background: #FEF3C7; border: 1.5px solid #FDE68A; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
     .config-bar input { flex: 1; min-width: 300px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 7px; font-family: inherit; font-size: 13px; }
     .config-bar input:focus { border-color: var(--pink); outline: none; }
+
+    /* State badges for B1/B4 */
+    .state-pending           { background: #FEF3C7; color: #92400E; border: 1.5px solid #FDE68A; }
+    .state-sent              { background: #D1FAE5; color: #065F46; border: 1.5px solid #6EE7B7; }
+    .state-ACTIVE            { background: #D1FAE5; color: #065F46; border: 1.5px solid #6EE7B7; }
+    .state-TERMINATION       { background: #FEE2E2; color: #991B1B; border: 1.5px solid #FCA5A5; }
+    .state-TEMPORARY         { background: #FEF3C7; color: #92400E; border: 1.5px solid #FDE68A; }
+
+    /* Partner group header */
+    .partner-header td { background: #EDE9FE !important; padding: 8px 12px !important; cursor: pointer; border-bottom: 1px solid var(--border) !important; }
+    .partner-header:hover td { background: #DDD6FE !important; }
+    .partner-header-inner { display: flex; align-items: center; gap: 10px; }
+    .partner-label { font-size: 12px; font-weight: 700; color: var(--purple); }
+    .partner-meta { font-size: 11px; color: var(--text-3); }
+    .partner-email-tag { font-size: 11px; color: var(--info); font-weight: 500; }
+
+    /* Email composer */
+    .email-composer { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+    .email-composer h3 { font-size: 14px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .template-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .template-card { border: 2px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; transition: all .15s; }
+    .template-card:hover { border-color: var(--pink-mid); }
+    .template-card.selected { border-color: var(--pink); background: var(--pink-light); }
+    .template-card .tc-num { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; }
+    .template-card .tc-name { font-size: 13px; font-weight: 600; margin-top: 3px; }
+    .template-card .tc-principle { font-size: 11px; color: var(--text-2); margin-top: 4px; }
+    .var-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .email-preview { background: #FAFAFA; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 14px; max-height: 400px; overflow-y: auto; }
+    .email-preview .ep-subject { font-weight: 700; font-size: 14px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .email-preview .ep-body { font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+
+    /* Form elements */
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .fg { display: flex; flex-direction: column; gap: 4px; }
+    .fg label { font-size: 12px; font-weight: 600; color: var(--text-2); }
+    .fg input, .fg textarea, .fg select { padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 7px; font-family: inherit; font-size: 13px; background: white; outline: none; }
+    .fg input:focus, .fg textarea:focus, .fg select:focus { border-color: var(--pink); }
+    .radio-group { display: flex; gap: 12px; align-items: center; padding: 7px 0; }
+    .radio-group label { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; }
+    .radio-group input[type=radio] { accent-color: var(--pink); }
+
+    /* Email log */
+    .log-entry { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+    .log-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .log-icon.ok { background: #D1FAE5; }
+    .log-icon.fail { background: #FEE2E2; }
+    .log-icon.test { background: #DBEAFE; }
+    .log-details { flex: 1; min-width: 0; }
+    .log-details .ld-top { font-size: 13px; font-weight: 600; }
+    .log-details .ld-bot { font-size: 11px; color: var(--text-3); }
+
+    /* Section header */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-title { font-size: 16px; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -206,8 +260,8 @@
 
 <nav>
   <div class="nav-tab active" onclick="switchTab('breach2')">Breach 2 — Extra Cash <span class="nav-badge" id="b2-badge" style="display:none"></span></div>
-  <div class="nav-tab" onclick="switchTab('breach1')">Breach 1 — Disintermediation</div>
-  <div class="nav-tab" onclick="switchTab('breach4')">Breach 4 — Router Misuse</div>
+  <div class="nav-tab" onclick="switchTab('breach1')">Breach 1 — Disintermediation <span class="nav-badge orange" id="b1-badge" style="display:none"></span></div>
+  <div class="nav-tab" onclick="switchTab('breach4')">Breach 4 — Router Misuse <span class="nav-badge orange" id="b4-badge" style="display:none"></span></div>
 </nav>
 
 <main>
@@ -237,6 +291,7 @@
   <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border);background:var(--white);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden">
     <div class="nav-tab active" id="b2sub-cases-tab" onclick="switchB2Sub('cases')" style="border-bottom-width:2px">Cases</div>
     <div class="nav-tab" id="b2sub-comms-tab" onclick="switchB2Sub('comms')" style="border-bottom-width:2px">Customer Comms <span class="nav-badge" id="comms-badge" style="display:none;background:var(--success)">0</span></div>
+    <div class="nav-tab" id="b2sub-vis-tab" onclick="switchB2Sub('visibility')" style="border-bottom-width:2px">Visibility</div>
   </div>
 
   <!-- ── Cases sub-tab ── -->
@@ -347,64 +402,287 @@
       <table>
         <thead><tr>
           <th class="check-col"><input type="checkbox" id="comms-chk-all" onchange="commsSelectAll(this.checked)"/></th>
-          <th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
-          <th>Amount</th><th>Payout Link</th><th>Refunded At</th><th>Actions</th>
+          <th>Kapture ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Amount</th><th>Payout Link</th><th>Refunded At</th><th>Notes</th><th>Actions</th>
         </tr></thead>
-        <tbody id="commsBody"><tr><td colspan="9" class="loading-state">Loading...</td></tr></tbody>
+        <tbody id="commsBody"><tr><td colspan="10" class="loading-state">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Visibility Dashboard sub-tab ── -->
+  <div id="b2sub-visibility" style="display:none">
+    <div class="action-bar">
+      <span class="action-label">Visibility Dashboard</span>
+      <div class="spacer"></div>
+      <button class="btn btn-outline btn-sm" onclick="loadVisibility()">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead id="visHead"><tr><th>Metric</th><th>Today</th><th>Today-1</th><th>Today-2</th><th>Post Mar 11 (All)</th><th>Pre Mar 11 (PayG Install)</th></tr></thead>
+        <tbody id="visBody"><tr><td colspan="6" class="loading-state">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
 
 </div><!-- /breach2 -->
 
-<!-- ═══════════ BREACH 1 (read-only from Google Sheet) ═══════════ -->
+<!-- ═══════════ BREACH 1 — DISINTERMEDIATION ═══════════ -->
 <div id="tab-breach1" class="tab-panel">
-  <div class="kpi-grid">
-    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b1k-total">--</div></div>
-    <div class="kpi-card org"><div class="kpi-label">Partners</div><div class="kpi-value" id="b1k-partners">--</div></div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid" id="b1-kpi">
+    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b1k-total">—</div><div class="kpi-sub">From Sheet</div></div>
+    <div class="kpi-card org"><div class="kpi-label">Partners</div><div class="kpi-value" id="b1k-partners">—</div><div class="kpi-sub">Unique</div></div>
+    <div class="kpi-card pink"><div class="kpi-label">Termination</div><div class="kpi-value" id="b1k-term">—</div><div class="kpi-sub">Partner status</div></div>
+    <div class="kpi-card warn"><div class="kpi-label">Temp Suspended</div><div class="kpi-value" id="b1k-susp">—</div><div class="kpi-sub">Partner status</div></div>
+    <div class="kpi-card ok"><div class="kpi-label">Active</div><div class="kpi-value" id="b1k-active">—</div><div class="kpi-sub">Partner status</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Email Pending</div><div class="kpi-value" id="b1k-epend">—</div><div class="kpi-sub">Not sent</div></div>
+    <div class="kpi-card ok"><div class="kpi-label">Email Sent</div><div class="kpi-value" id="b1k-esent">—</div><div class="kpi-sub">Delivered</div></div>
   </div>
+
+  <!-- Action bar -->
   <div class="action-bar">
-    <span class="action-label">Breach 1 — Disintermediation</span>
-    <button class="btn btn-outline btn-sm" onclick="loadB1()">Refresh from Sheet</button>
-    <a href="https://docs.google.com/spreadsheets/d/1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ" target="_blank" class="btn btn-outline btn-sm" style="color:var(--info)">Open Sheet</a>
+    <span class="action-label">Actions</span>
+    <button class="btn btn-orange btn-sm" onclick="syncBreach1()">↻ Sync from Sheet</button>
+    <button class="btn btn-outline btn-sm" onclick="showEmailComposer()">📧 Compose Email</button>
+    <button class="btn btn-outline btn-sm" onclick="showEmailLog()">📋 Email Log</button>
+    <button class="btn btn-success btn-sm" onclick="previewEscalation()">📤 Update Google Sheet</button>
     <div class="spacer"></div>
-    <span style="font-size:11px;color:var(--text-3)">Read-only from Google Sheet</span>
+    <span id="b1-sync-status" style="font-size:11px;color:var(--text-3)"></span>
   </div>
+
+  <!-- Filter bar -->
   <div class="filter-bar">
-    <input type="search" id="b1Search" placeholder="Search partner, mobile..." oninput="renderB1()"/>
-    <span id="b1Count" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
+    <select id="b1fPartner" onchange="loadB1Cases()"><option value="all">All Partners</option></select>
+    <select id="b1fZone" onchange="loadB1Cases()"><option value="all">All Zones</option></select>
+    <select id="b1fStatus" onchange="loadB1Cases()">
+      <option value="all">All Statuses</option>
+      <option value="TERMINATION">Termination</option>
+      <option value="TEMPORARY SUSPENSION">Temp Suspension</option>
+      <option value="ACTIVE">Active</option>
+    </select>
+    <select id="b1fEmail" onchange="loadB1Cases()">
+      <option value="all">All Email States</option>
+      <option value="pending">Pending</option>
+      <option value="sent">Sent</option>
+    </select>
+    <input type="search" id="b1fSearch" placeholder="Search mobile, partner…" oninput="loadB1Cases()"/>
+    <span id="b1fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
   </div>
+
+  <!-- Cases table -->
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Partner</th><th>Customer Mobile</th><th>Expiry Date</th><th>Zone</th><th>City</th><th>Tenure</th><th>Risk Score</th><th>Status</th><th>Disintermediation</th></tr></thead>
-      <tbody id="b1Body"><tr><td colspan="9" class="loading-state">Loading...</td></tr></tbody>
+      <thead><tr>
+        <th class="check-col"><input type="checkbox" id="b1-chk-all" onchange="b1SelectAll(this.checked)"/></th>
+        <th>Partner</th><th>Customer Mobile</th><th>Expiry Date</th><th>Zone</th><th>City</th>
+        <th>Tenure</th><th>Risk Score</th><th>Status</th><th>Email</th>
+      </tr></thead>
+      <tbody id="b1Body"><tr><td colspan="10" class="loading-state">Click "Sync from Sheet" to load cases</td></tr></tbody>
     </table>
   </div>
+
+  <!-- Email Composer (hidden by default) -->
+  <div id="emailComposer" style="display:none;margin-top:16px">
+    <div class="email-composer">
+      <h3>📧 FP1 — Disintermediation Email</h3>
+
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+        <div><span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3)">Selected Cases:</span> <strong id="ec-count" style="color:var(--pink);font-size:18px">0</strong></div>
+        <div style="font-size:12px;color:var(--text-2)">Fundamental Principle 1 — Keep Wiom Users within the Wiom System</div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Select Proof Variables to Include</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px" id="varToggles"></div>
+
+      <div class="var-grid" id="varGrid" style="margin-bottom:14px"></div>
+
+      <div class="form-row">
+        <div class="fg">
+          <label>Language</label>
+          <select id="ec-lang" onchange="previewEmail()">
+            <option value="both">Both (Hindi + English)</option>
+            <option value="hi">Hindi Only</option>
+            <option value="en">English Only</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Test Email (optional — overrides recipient)</label>
+          <input type="email" id="ec-test-email" placeholder="your@email.com for testing"/>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-outline" onclick="previewEmail()">Preview</button>
+        <button class="btn btn-info" onclick="sendEmail(true)" id="testSendBtn">Send Test</button>
+        <button class="btn btn-primary" onclick="sendEmail(false)" id="realSendBtn">Send to Partners</button>
+      </div>
+
+      <div id="emailPreview" style="display:none;margin-top:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Email Preview</div>
+        <div class="email-preview">
+          <div class="ep-subject" id="ep-subject"></div>
+          <div class="ep-body" id="ep-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email Log (hidden by default) -->
+  <div id="emailLogSection" style="display:none;margin-top:16px">
+    <div class="section-header">
+      <div class="section-title">Email Send Log</div>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('emailLogSection').style.display='none'">Close</button>
+    </div>
+    <div id="emailLogBody"><div class="loading-state">Loading…</div></div>
+  </div>
+
+  <!-- Escalation Sheet Preview -->
+  <div id="escalationSection" style="display:none;margin-top:16px">
+    <div class="email-composer">
+      <h3>📤 Update FP1 Escalation Google Sheet</h3>
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:12px">Preview rows to append to <strong>FP1 : Escalation</strong> tab. Duplicates (by customer mobile) are automatically skipped.</p>
+      <div id="escStatus" style="margin-bottom:10px;font-size:13px"></div>
+      <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+        <table>
+          <thead><tr>
+            <th>Partner</th><th>Customer</th><th>Date Reported</th><th>Email Sent</th><th>Email Date</th><th>Partner Email</th>
+          </tr></thead>
+          <tbody id="escBody"><tr><td colspan="6" class="loading-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-success" onclick="pushEscalation()" id="escPushBtn">Push to Google Sheet</button>
+        <button class="btn btn-outline" onclick="document.getElementById('escalationSection').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /breach1 -->
 
-<!-- ═══════════ BREACH 4 (read-only from Google Sheet) ═══════════ -->
+<!-- ═══════════ BREACH 4 — ROUTER MISUSE ═══════════ -->
 <div id="tab-breach4" class="tab-panel">
-  <div class="kpi-grid">
-    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b4k-total">--</div></div>
-    <div class="kpi-card org"><div class="kpi-label">Partners</div><div class="kpi-value" id="b4k-partners">--</div></div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid" id="b4-kpi">
+    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b4k-total">—</div><div class="kpi-sub">From Sheet</div></div>
+    <div class="kpi-card org"><div class="kpi-label">Partners</div><div class="kpi-value" id="b4k-partners">—</div><div class="kpi-sub">Unique</div></div>
+    <div class="kpi-card ok"><div class="kpi-label">Penalty Done</div><div class="kpi-value" id="b4k-penalty">—</div><div class="kpi-sub">Completed</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Email Pending</div><div class="kpi-value" id="b4k-epend">—</div><div class="kpi-sub">Not sent</div></div>
+    <div class="kpi-card ok"><div class="kpi-label">Email Sent</div><div class="kpi-value" id="b4k-esent">—</div><div class="kpi-sub">Delivered</div></div>
   </div>
+
+  <!-- Action bar -->
   <div class="action-bar">
-    <span class="action-label">Breach 4 — Router Misuse</span>
-    <button class="btn btn-outline btn-sm" onclick="loadB4()">Refresh from Sheet</button>
-    <a href="https://docs.google.com/spreadsheets/d/1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc" target="_blank" class="btn btn-outline btn-sm" style="color:var(--info)">Open Sheet</a>
+    <span class="action-label">Actions</span>
+    <button class="btn btn-orange btn-sm" onclick="syncBreach4()">↻ Sync from Sheet</button>
+    <button class="btn btn-outline btn-sm" onclick="showB4EmailComposer()">📧 Compose Email</button>
+    <button class="btn btn-outline btn-sm" onclick="showB4EmailLog()">📋 Email Log</button>
+    <button class="btn btn-success btn-sm" onclick="previewB4Escalation()">📤 Update Google Sheet</button>
     <div class="spacer"></div>
-    <span style="font-size:11px;color:var(--text-3)">Read-only from Google Sheet</span>
+    <span id="b4-sync-status" style="font-size:11px;color:var(--text-3)"></span>
   </div>
+
+  <!-- Filter bar -->
   <div class="filter-bar">
-    <input type="search" id="b4Search" placeholder="Search partner, device..." oninput="renderB4()"/>
-    <span id="b4Count" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
+    <select id="b4fPartner" onchange="loadB4Cases()"><option value="all">All Partners</option></select>
+    <select id="b4fEmail" onchange="loadB4Cases()">
+      <option value="all">All Email States</option>
+      <option value="pending">Pending</option>
+      <option value="sent">Sent</option>
+    </select>
+    <input type="search" id="b4fSearch" placeholder="Search partner, device…" oninput="loadB4Cases()"/>
+    <span id="b4fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
   </div>
+
+  <!-- Cases table -->
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Partner</th><th>Device ID</th><th>Customer</th><th>Date Reported</th><th>Channel</th><th>Penalty</th><th>Penalty Done</th></tr></thead>
-      <tbody id="b4Body"><tr><td colspan="7" class="loading-state">Loading...</td></tr></tbody>
+      <thead><tr>
+        <th class="check-col"><input type="checkbox" id="b4-chk-all" onchange="b4SelectAll(this.checked)"/></th>
+        <th>Partner</th><th>Device ID</th><th>Customer</th><th>Date Reported</th>
+        <th>Channel</th><th>Penalty</th><th>Penalty Done</th><th>Email</th>
+      </tr></thead>
+      <tbody id="b4Body"><tr><td colspan="9" class="loading-state">Click "Sync from Sheet" to load cases</td></tr></tbody>
     </table>
   </div>
+
+  <!-- Email Composer (hidden by default) -->
+  <div id="b4EmailComposer" style="display:none;margin-top:16px">
+    <div class="email-composer">
+      <h3>📧 FP4 — Router Misuse Email</h3>
+
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+        <div><span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3)">Selected Cases:</span> <strong id="b4ec-count" style="color:var(--pink);font-size:18px">0</strong></div>
+        <div style="font-size:12px;color:var(--text-2)">Fundamental Principle 4 — Maintain Accurate System Data and Use Wiom Devices Properly</div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Proof Variables</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px" id="b4VarToggles"></div>
+      <div class="var-grid" id="b4VarGrid" style="margin-bottom:14px"></div>
+
+      <div class="form-row">
+        <div class="fg">
+          <label>Language</label>
+          <select id="b4ec-lang" onchange="previewB4Email()">
+            <option value="both">Both (Hindi + English)</option>
+            <option value="hi">Hindi Only</option>
+            <option value="en">English Only</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Test Email (optional — overrides recipient)</label>
+          <input type="email" id="b4ec-test-email" placeholder="your@email.com for testing"/>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-outline" onclick="previewB4Email()">Preview</button>
+        <button class="btn btn-info" onclick="sendB4Email(true)" id="b4TestSendBtn">Send Test</button>
+        <button class="btn btn-primary" onclick="sendB4Email(false)" id="b4RealSendBtn">Send to Partners</button>
+      </div>
+
+      <div id="b4EmailPreview" style="display:none;margin-top:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Email Preview</div>
+        <div class="email-preview">
+          <div class="ep-subject" id="b4ep-subject"></div>
+          <div class="ep-body" id="b4ep-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email Log -->
+  <div id="b4EmailLogSection" style="display:none;margin-top:16px">
+    <div class="section-header">
+      <div class="section-title">Email Send Log</div>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('b4EmailLogSection').style.display='none'">Close</button>
+    </div>
+    <div id="b4EmailLogBody"><div class="loading-state">Loading…</div></div>
+  </div>
+
+  <!-- Escalation Sheet Preview -->
+  <div id="b4EscalationSection" style="display:none;margin-top:16px">
+    <div class="email-composer">
+      <h3>📤 Update FP4 Router Misuse Google Sheet</h3>
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:12px">Preview data to write back to <strong>FP4 : Router Misuse</strong> tab with updated email status.</p>
+      <div id="b4EscStatus" style="margin-bottom:10px;font-size:13px"></div>
+      <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+        <table>
+          <thead><tr>
+            <th>Partner</th><th>Device ID</th><th>Customer</th><th>Email Done</th><th>Email Date</th>
+          </tr></thead>
+          <tbody id="b4EscBody"><tr><td colspan="5" class="loading-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-success" onclick="pushB4Escalation()" id="b4EscPushBtn">Push to Google Sheet</button>
+        <button class="btn btn-outline" onclick="document.getElementById('b4EscalationSection').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /breach4 -->
 
 </main>
@@ -418,6 +696,20 @@
   <button class="btn btn-outline btn-sm" onclick="clearSelection()">Clear</button>
 </div>
 
+<!-- B1 Floating selection bar -->
+<div id="b1SelBar" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:12px;display:none;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:999;font-size:13px;font-weight:500">
+  <span>Selected: <span style="color:#A3E635;font-weight:700" id="b1SelCount">0</span></span>
+  <button class="btn btn-orange btn-sm" onclick="showEmailComposer()">📧 Compose Email</button>
+  <button class="btn btn-outline btn-sm" style="color:white;border-color:rgba(255,255,255,.3)" onclick="b1ClearSelection()">✕ Clear</button>
+</div>
+
+<!-- B4 Floating selection bar -->
+<div id="b4SelBar" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:12px;display:none;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:999;font-size:13px;font-weight:500">
+  <span>Selected: <span style="color:#A3E635;font-weight:700" id="b4SelCount">0</span></span>
+  <button class="btn btn-orange btn-sm" onclick="showB4EmailComposer()">📧 Compose Email</button>
+  <button class="btn btn-outline btn-sm" style="color:white;border-color:rgba(255,255,255,.3)" onclick="b4ClearSelection()">✕ Clear</button>
+</div>
+
 <div id="toast"></div>
 
 </div><!-- /app -->
@@ -429,10 +721,6 @@
 const AUTH_USER = 'wiom';
 const AUTH_PASS = 'wiom2026';
 
-// These sheet IDs must be "Published to web" or shared as "Anyone with the link"
-const B1_SHEET_ID = '1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ';
-const B4_SHEET_ID = '1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc';
-const B4_TAB = 'FP4 : Router Misuse';
 
 function getApiUrl() { return localStorage.getItem('BT_API_URL') || 'https://breach-tracker-production.up.railway.app'; }
 function saveConfig() {
@@ -532,26 +820,6 @@ async function apiPostFile(path, formData) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// GOOGLE VISUALIZATION API (read-only Breach 1 & 4)
-// ═══════════════════════════════════════════════════════════════════════════════
-async function fetchSheet(sheetId, tabName, range) {
-  const tab = tabName ? `&sheet=${encodeURIComponent(tabName)}` : '';
-  const rng = range ? `&range=${encodeURIComponent(range)}` : '';
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json${tab}${rng}`;
-  try {
-    const r = await fetch(url);
-    const text = await r.text();
-    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);?/)[1]);
-    const cols = json.table.cols.map(c => c.label || c.id);
-    return json.table.rows.map(row => {
-      const obj = {};
-      row.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v ?? '') : ''; });
-      return obj;
-    });
-  } catch(e) { console.error('Sheet fetch error:', e); return []; }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // TAB SWITCHING
 // ═══════════════════════════════════════════════════════════════════════════════
 let currentTab = 'breach2';
@@ -561,8 +829,8 @@ function switchTab(t) {
     document.getElementById('tab-'+n).classList.toggle('active', n===t);
     document.querySelectorAll('.nav-tab')[i].classList.toggle('active', n===t);
   });
-  if (t==='breach1') loadB1();
-  if (t==='breach4') loadB4();
+  if (t==='breach1') { loadB1Summary(); loadB1Cases(); loadB1Filters(); }
+  if (t==='breach4') { loadB4Summary(); loadB4Cases(); loadB4Filters(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -622,9 +890,12 @@ let commsSelected = new Set();
 function switchB2Sub(sub) {
   document.getElementById('b2sub-cases').style.display = sub === 'cases' ? '' : 'none';
   document.getElementById('b2sub-comms').style.display = sub === 'comms' ? '' : 'none';
+  document.getElementById('b2sub-visibility').style.display = sub === 'visibility' ? '' : 'none';
   document.getElementById('b2sub-cases-tab').classList.toggle('active', sub === 'cases');
   document.getElementById('b2sub-comms-tab').classList.toggle('active', sub === 'comms');
+  document.getElementById('b2sub-vis-tab').classList.toggle('active', sub === 'visibility');
   if (sub === 'comms') loadCommsTab();
+  if (sub === 'visibility') loadVisibility();
 }
 
 async function loadCommsTab() {
@@ -636,7 +907,7 @@ async function loadCommsTab() {
 function renderCommsTab() {
   const body = document.getElementById('commsBody');
   if (!commsData.length) {
-    body.innerHTML = '<tr><td colspan="9"><div class="empty-state">No cases awaiting customer comms</div></td></tr>';
+    body.innerHTML = '<tr><td colspan="10"><div class="empty-state">No cases awaiting customer comms</div></td></tr>';
     return;
   }
   body.innerHTML = commsData.map(c => {
@@ -645,15 +916,17 @@ function renderCommsTab() {
       ? `<div style="display:flex;gap:4px;align-items:center"><a href="${c.refund_payout_link}" target="_blank" class="btn btn-primary btn-xs" onclick="event.stopPropagation()">View</a><button class="btn btn-outline btn-xs" onclick="copyPayout('${c.refund_payout_link}',event)" title="Copy link">Copy</button></div>`
       : '<span style="color:var(--text-3)">--</span>';
     const amt = c.extra_amount ? `<strong style="color:var(--pink)">\u20B9${c.extra_amount}</strong>` : '--';
+    const kid = c.kapture_ticket_id || String(c.ticket_id).slice(-8);
     return `<tr>
       <td class="check-col"><input type="checkbox" class="comms-chk" value="${c.ticket_id}" ${commsSelected.has(c.ticket_id)?'checked':''} onchange="commsHandleChk(this)"/></td>
-      <td><code style="font-size:11px">${String(c.ticket_id).slice(-8)}</code></td>
+      <td><code style="font-size:11px">${kid}</code></td>
       <td>${mobileLink}</td>
       <td style="max-width:130px">${c.current_partner_name||'--'}</td>
       <td style="font-size:12px">${c.zone||'--'}</td>
       <td>${amt}</td>
       <td>${payoutLink}</td>
       <td style="font-size:12px">${(c.customer_refunded_at||'').slice(0,16)||'--'}</td>
+      <td><input type="text" class="comms-note" data-tid="${c.ticket_id}" placeholder="Notes..." style="width:120px;padding:4px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit"/></td>
       <td><button class="btn btn-success btn-xs" onclick="markCommsDone('${c.ticket_id}')">Comms Done</button></td>
     </tr>`;
   }).join('');
@@ -665,8 +938,10 @@ function copyPayout(link, evt) {
 }
 
 async function markCommsDone(tid) {
+  const noteEl = document.querySelector(`.comms-note[data-tid="${tid}"]`);
+  const notes = noteEl ? noteEl.value.trim() : '';
   toast('Confirming comms...');
-  const r = await apiPost('/api/cases/'+tid+'/confirm-comms');
+  const r = await apiPost('/api/cases/'+tid+'/confirm-comms', {notes});
   if (r?.error) { toast(r.error, 'error'); return; }
   toast('Customer comms confirmed', 'success');
   await Promise.all([loadCommsTab(), loadCommsBadge(), loadSummary()]);
@@ -678,7 +953,9 @@ async function bulkMarkCommsDone() {
   toast('Confirming comms...');
   let done = 0;
   for (const tid of tids) {
-    const r = await apiPost('/api/cases/'+tid+'/confirm-comms');
+    const noteEl = document.querySelector(`.comms-note[data-tid="${tid}"]`);
+    const notes = noteEl ? noteEl.value.trim() : '';
+    const r = await apiPost('/api/cases/'+tid+'/confirm-comms', {notes});
     if (r?.ok) done++;
   }
   toast(`Confirmed comms for ${done} case(s)`, 'success');
@@ -701,6 +978,20 @@ async function loadCommsBadge() {
   const count = data ? data.length : 0;
   badge.style.display = count > 0 ? 'inline' : 'none';
   badge.textContent = count;
+}
+
+// ── Visibility Dashboard ─────────────────────────────────────────────────────
+async function loadVisibility() {
+  const body = document.getElementById('visBody');
+  body.innerHTML = '<tr><td colspan="6" class="loading-state">Loading...</td></tr>';
+  const data = await apiGet('/api/cases/visibility');
+  if (!data || !data.rows) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>'; return; }
+  body.innerHTML = data.rows.map(r => {
+    const isMoney = r.label.startsWith('Total');
+    return `<tr><td style="font-weight:600;white-space:nowrap">${r.label}</td>${r.values.map(v =>
+      `<td style="text-align:right;font-variant-numeric:tabular-nums">${isMoney ? '₹'+Number(v).toLocaleString('en-IN') : v}</td>`
+    ).join('')}</tr>`;
+  }).join('');
 }
 
 function groupByDay(arr) {
@@ -982,77 +1273,590 @@ async function handlePenaltyUpload(input) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BREACH 1 (from Railway API)
+// BREACH 1 — DISINTERMEDIATION
 // ═══════════════════════════════════════════════════════════════════════════════
-let b1Data = [];
-async function loadB1() {
-  const data = await apiGet('/api/breach1/cases');
-  b1Data = Array.isArray(data) ? data : [];
-  renderB1();
-}
-function renderB1() {
-  const search = (document.getElementById('b1Search')?.value || '').trim().toLowerCase();
-  let filtered = b1Data;
-  if (search) {
-    filtered = filtered.filter(c =>
-      (c.partner_name||'').toLowerCase().includes(search) ||
-      (c.customer_mobile||'').toLowerCase().includes(search) ||
-      (c.zone||'').toLowerCase().includes(search)
-    );
-  }
-  document.getElementById('b1k-total').textContent = filtered.length;
-  document.getElementById('b1k-partners').textContent = new Set(filtered.map(c=>c.partner_name)).size;
-  document.getElementById('b1Count').textContent = filtered.length + ' case(s)';
+let b1Cases = [];
+let b1Selected = new Set();
 
+async function syncBreach1() {
+  document.getElementById('b1-sync-status').textContent = 'Syncing…';
+  try {
+    const r = await apiPost('/api/breach1/sync');
+    if (!r || r.error) { toast('Sync failed: '+(r?.error||'unknown'), 'error'); return; }
+    toast(`Synced: ${r.new_cases} new, ${r.updated} updated (${r.total_fetched} total)`, 'success');
+    document.getElementById('b1-sync-status').textContent = 'Last synced '+new Date().toLocaleTimeString();
+    await Promise.all([loadB1Summary(), loadB1Cases(), loadB1Filters()]);
+  } catch(e) { toast('Sync error: '+e.message, 'error'); }
+}
+
+async function loadB1Summary() {
+  const s = await apiGet('/api/breach1/summary');
+  if (!s) return;
+  document.getElementById('b1k-total').textContent = s.total ?? '—';
+  document.getElementById('b1k-partners').textContent = s.partners ?? '—';
+  document.getElementById('b1k-term').textContent = s.by_status?.TERMINATION ?? '0';
+  document.getElementById('b1k-susp').textContent = s.by_status?.['TEMPORARY SUSPENSION'] ?? '0';
+  document.getElementById('b1k-active').textContent = s.by_status?.ACTIVE ?? '0';
+  document.getElementById('b1k-epend').textContent = s.by_email_state?.pending ?? '0';
+  document.getElementById('b1k-esent').textContent = s.by_email_state?.sent ?? '0';
+  // Nav badge
+  const pending = s.by_email_state?.pending ?? 0;
+  const badge = document.getElementById('b1-badge');
+  if (badge) {
+    badge.style.display = pending > 0 ? 'inline' : 'none';
+    badge.textContent = pending;
+  }
+}
+
+async function loadB1Filters() {
+  const [partners, zones] = await Promise.all([
+    apiGet('/api/breach1/partners'),
+    apiGet('/api/breach1/zones'),
+  ]);
+  if (partners) {
+    const pSel = document.getElementById('b1fPartner');
+    pSel.innerHTML = '<option value="all">All Partners</option>';
+    partners.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p; pSel.appendChild(o); });
+  }
+  if (zones) {
+    const zSel = document.getElementById('b1fZone');
+    zSel.innerHTML = '<option value="all">All Zones</option>';
+    zones.forEach(z => { const o = document.createElement('option'); o.value=z; o.textContent=z; zSel.appendChild(o); });
+  }
+}
+
+async function loadB1Cases() {
+  const partner = document.getElementById('b1fPartner').value;
+  const zone = document.getElementById('b1fZone').value;
+  const status = document.getElementById('b1fStatus').value;
+  const emailState = document.getElementById('b1fEmail').value;
+  const search = document.getElementById('b1fSearch').value.trim();
+  const data = await apiGet('/api/breach1/cases', {partner, zone, status, email_state: emailState, search});
+  b1Cases = Array.isArray(data) ? data : [];
+  renderB1Cases();
+}
+
+function renderB1Cases() {
   const body = document.getElementById('b1Body');
-  if (!filtered.length) { body.innerHTML = '<tr><td colspan="9"><div class="empty-state">No cases</div></td></tr>'; return; }
-  body.innerHTML = filtered.map(c => `<tr>
-    <td style="font-size:12px">${c.partner_name||'--'}</td>
-    <td>${c.customer_mobile||'--'}</td>
-    <td style="font-size:12px">${c.expiry_dt||'--'}</td>
-    <td style="font-size:12px">${c.zone||'--'}</td>
-    <td style="font-size:12px">${c.city||'--'}</td>
-    <td>${c.tenure||'--'}</td>
-    <td><strong>${c.risk_score||'--'}</strong></td>
-    <td><span class="state-badge state-${(c.partner_status||'').includes('TERM')?'TERMINATION':(c.partner_status||'').includes('ACTIVE')?'ACTIVE':'TEMPORARY'}"><span class="dot"></span>${c.partner_status||'--'}</span></td>
-    <td>${c.disintermediation||'--'}</td>
-  </tr>`).join('');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// BREACH 4 (from Railway API)
-// ═══════════════════════════════════════════════════════════════════════════════
-let b4Data = [];
-async function loadB4() {
-  const data = await apiGet('/api/breach4/cases');
-  b4Data = Array.isArray(data) ? data : [];
-  renderB4();
-}
-function renderB4() {
-  const search = (document.getElementById('b4Search')?.value || '').trim().toLowerCase();
-  let filtered = b4Data;
-  if (search) {
-    filtered = filtered.filter(c =>
-      (c.partner_name||'').toLowerCase().includes(search) ||
-      (c.device_id||'').toLowerCase().includes(search) ||
-      (c.partner_id||'').toLowerCase().includes(search)
-    );
+  document.getElementById('b1fCount').textContent = b1Cases.length + ' case(s)';
+  if (!b1Cases.length) {
+    body.innerHTML = '<tr><td colspan="10"><div class="empty-state">No cases. Click "Sync from Sheet" to import.</div></td></tr>';
+    return;
   }
-  document.getElementById('b4k-total').textContent = filtered.length;
-  document.getElementById('b4k-partners').textContent = new Set(filtered.map(c=>c.partner_name)).size;
-  document.getElementById('b4Count').textContent = filtered.length + ' case(s)';
+  // Group by partner
+  const groups = {};
+  b1Cases.forEach(c => {
+    const p = c.partner_name || 'Unknown';
+    if (!groups[p]) groups[p] = [];
+    groups[p].push(c);
+  });
+  let html = '';
+  for (const [partner, items] of Object.entries(groups).sort(([a],[b])=>a.localeCompare(b))) {
+    const email = items[0]?.partner_email || '';
+    const pKey = partner.replace(/[^a-zA-Z0-9]/g,'');
+    html += `<tr class="partner-header" onclick="togglePartnerGroup('${pKey}')">
+      <td colspan="10"><div class="partner-header-inner">
+        <span class="day-chevron" id="pch-${pKey}">▼</span>
+        <span class="partner-label">${partner}</span>
+        <span class="partner-meta">${items.length} case(s)</span>
+        ${email ? `<span class="partner-email-tag">${email}</span>` : '<span style="font-size:11px;color:#EF4444">No email</span>'}
+      </div></td>
+    </tr>`;
+    items.forEach(c => {
+      const statusClass = c.partner_status === 'TERMINATION' ? 'state-TERMINATION' :
+                           c.partner_status === 'ACTIVE' ? 'state-ACTIVE' : 'state-TEMPORARY';
+      const emailBadge = c.email_state === 'sent'
+        ? '<span class="pill pill-yes">Sent</span>'
+        : '<span class="pill pill-no">Pending</span>';
+      html += `<tr class="pg-${pKey}">
+        <td class="check-col"><input type="checkbox" class="b1-chk" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+        <td style="font-size:12px">${c.partner_name||'—'}</td>
+        <td>${c.customer_mobile||'—'}</td>
+        <td style="font-size:12px">${c.expiry_dt||'—'}</td>
+        <td style="font-size:12px">${c.zone||'—'}</td>
+        <td style="font-size:12px">${c.city||'—'}</td>
+        <td style="font-size:12px">${c.tenure||'—'}</td>
+        <td><strong>${c.risk_score||'—'}</strong></td>
+        <td><span class="state-badge ${statusClass}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
+        <td>${emailBadge}</td>
+      </tr>`;
+    });
+  }
+  body.innerHTML = html;
+}
 
-  const body = document.getElementById('b4Body');
-  if (!filtered.length) { body.innerHTML = '<tr><td colspan="7"><div class="empty-state">No cases</div></td></tr>'; return; }
-  body.innerHTML = filtered.map(c => `<tr>
-    <td style="font-size:12px">${c.partner_name||'--'}</td>
-    <td><code style="font-size:11px">${c.device_id||'--'}</code></td>
-    <td style="font-size:12px">${c.customer_details||'--'}</td>
-    <td style="font-size:12px">${c.date_reported||'--'}</td>
-    <td style="font-size:12px">${c.reporting_channel||'--'}</td>
-    <td>${c.penalty_amount||'--'}</td>
-    <td>${c.penalty_done==='Yes'?'<span class="pill pill-yes">Yes</span>':'<span class="pill pill-no">No</span>'}</td>
-  </tr>`).join('');
+function togglePartnerGroup(key) {
+  const rows = document.querySelectorAll('.pg-'+key);
+  const ch = document.getElementById('pch-'+key);
+  const hidden = rows[0]?.style.display === 'none';
+  rows.forEach(r => r.style.display = hidden ? '' : 'none');
+  if (ch) ch.classList.toggle('closed', !hidden);
+}
+
+function b1HandleChk(chk) {
+  const id = parseInt(chk.value);
+  if (chk.checked) b1Selected.add(id); else b1Selected.delete(id);
+  updateB1SelBar();
+}
+
+function b1SelectAll(checked) {
+  document.querySelectorAll('.b1-chk').forEach(chk => {
+    chk.checked = checked;
+    b1HandleChk(chk);
+  });
+}
+
+function b1ClearSelection() {
+  b1Selected.clear();
+  document.querySelectorAll('.b1-chk').forEach(c => c.checked=false);
+  document.getElementById('b1-chk-all').checked = false;
+  updateB1SelBar();
+}
+
+function updateB1SelBar() {
+  const bar = document.getElementById('b1SelBar');
+  const n = b1Selected.size;
+  document.getElementById('b1SelCount').textContent = n;
+  document.getElementById('ec-count').textContent = n;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+}
+
+// ── B1 Email Composer ────────────────────────────────────────────────────────
+let b1TemplateInfo = null;
+let b1SelectedVars = new Set();
+
+async function showEmailComposer() {
+  if (!b1Selected.size) { toast('Select cases first', 'error'); return; }
+  document.getElementById('emailComposer').style.display = '';
+  document.getElementById('ec-count').textContent = b1Selected.size;
+  if (!b1TemplateInfo) {
+    b1TemplateInfo = await apiGet('/api/breach1/template');
+    if (!b1TemplateInfo) return;
+  }
+  renderVarToggles();
+  document.getElementById('emailComposer').scrollIntoView({behavior:'smooth'});
+}
+
+function renderVarToggles() {
+  const el = document.getElementById('varToggles');
+  el.innerHTML = '';
+  for (const [key, info] of Object.entries(b1TemplateInfo.proof_variables)) {
+    const checked = b1SelectedVars.has(key);
+    el.innerHTML += `<label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:2px solid ${checked?'var(--pink)':'var(--border)'};border-radius:8px;cursor:pointer;background:${checked?'var(--pink-light)':'white'};font-size:13px;font-weight:500;transition:all .15s">
+      <input type="checkbox" ${checked?'checked':''} onchange="toggleVar('${key}',this.checked)" style="accent-color:var(--pink)"/>
+      ${info.label}
+    </label>`;
+  }
+  renderVarInputs();
+}
+
+function toggleVar(key, checked) {
+  if (checked) b1SelectedVars.add(key); else b1SelectedVars.delete(key);
+  renderVarToggles();
+}
+
+function renderVarInputs() {
+  const grid = document.getElementById('varGrid');
+  grid.innerHTML = '';
+  for (const key of b1SelectedVars) {
+    const info = b1TemplateInfo.proof_variables[key];
+    const autoFill = key === 'LAST_SERVICE_DATE' || key === 'PHONE_NUMBER_FIRST4';
+    grid.innerHTML += `<div class="fg">
+      <label>${info.label}</label>
+      <input type="text" id="var-${key}" placeholder="${autoFill ? 'Auto-filled from case data' : 'Enter value…'}"/>
+    </div>`;
+  }
+}
+
+function getSelectedVarsAndValues() {
+  const selected = [...b1SelectedVars];
+  const values = {};
+  selected.forEach(v => {
+    const el = document.getElementById('var-'+v);
+    if (el && el.value.trim()) values[v] = el.value.trim();
+  });
+  return { selected, values };
+}
+
+async function previewEmail() {
+  const { selected, values } = getSelectedVarsAndValues();
+  if (!selected.length) { toast('Select at least one proof variable', 'error'); return; }
+  const lang = document.getElementById('ec-lang').value;
+  const r = await apiPost('/api/breach1/preview-email', {
+    language: lang, selected_vars: selected, values
+  });
+  if (!r || r.error) { toast(r?.error || 'Preview failed', 'error'); return; }
+  document.getElementById('emailPreview').style.display = '';
+  document.getElementById('ep-subject').textContent = r.subject;
+  document.getElementById('ep-body').textContent = r.body_text;
+}
+
+async function sendEmail(isTest) {
+  const { selected, values } = getSelectedVarsAndValues();
+  if (!selected.length) { toast('Select at least one proof variable', 'error'); return; }
+  const lang = document.getElementById('ec-lang').value;
+  const testEmail = document.getElementById('ec-test-email').value.trim();
+
+  if (isTest && !testEmail) { toast('Enter a test email address', 'error'); return; }
+
+  const caseIds = [...b1Selected];
+  const btn = isTest ? document.getElementById('testSendBtn') : document.getElementById('realSendBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const r = await apiPost('/api/breach1/send-email', {
+      case_ids: caseIds,
+      language: lang,
+      selected_vars: selected,
+      values,
+      test_email: isTest ? testEmail : '',
+    });
+    if (r && r.sent > 0) {
+      toast(`${isTest?'Test ':''}Email sent to ${r.sent}/${r.total} recipient(s)`, 'success');
+    }
+    const failed = r?.results?.filter(x => !x.ok) || [];
+    if (failed.length) {
+      toast(`${failed.length} failed: ${failed[0].error}`, 'error');
+    }
+    if (!isTest) {
+      await Promise.all([loadB1Summary(), loadB1Cases()]);
+    }
+  } catch(e) { toast('Send error: '+e.message, 'error'); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = isTest ? 'Send Test' : 'Send to Partners';
+  }
+}
+
+async function showEmailLog() {
+  document.getElementById('emailLogSection').style.display = '';
+  const logs = await apiGet('/api/breach1/email-log');
+  const el = document.getElementById('emailLogBody');
+  if (!logs || !logs.length) { el.innerHTML = '<div class="empty-state">No emails sent yet</div>'; return; }
+  el.innerHTML = logs.map(l => {
+    const icon = l.is_test ? 'test' : l.status==='sent' ? 'ok' : 'fail';
+    const emoji = l.is_test ? '🧪' : l.status==='sent' ? '✓' : '✗';
+    return `<div class="log-entry">
+      <div class="log-icon ${icon}">${emoji}</div>
+      <div class="log-details">
+        <div class="ld-top">${l.partner_name || '—'} → ${l.recipient_email}${l.is_test?' (TEST)':''}</div>
+        <div class="ld-bot">Case ${l.case_type} · ${l.language} · ${l.sent_at} ${l.error ? '· Error: '+l.error : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('emailLogSection').scrollIntoView({behavior:'smooth'});
+}
+
+// ── B1 Escalation Google Sheet ─────────────────────────────────────────────────
+async function previewEscalation() {
+  const sec = document.getElementById('escalationSection');
+  sec.style.display = '';
+  const status = document.getElementById('escStatus');
+  const body = document.getElementById('escBody');
+  status.innerHTML = '<span style="color:var(--text-3)">Loading preview…</span>';
+  body.innerHTML = '<tr><td colspan="6" class="loading-state">Loading…</td></tr>';
+  try {
+    const r = await apiGet('/api/breach1/escalation-preview');
+    if (!r || r.error) { status.innerHTML = `<span style="color:var(--pink)">${r?.error||'Error'}</span>`; return; }
+    const rows = r.rows || [];
+    const skipped = r.skipped || 0;
+    if (!rows.length) {
+      status.innerHTML = '<span style="color:var(--success)">All customers already exist in the sheet. Nothing to push.</span>';
+      body.innerHTML = '<tr><td colspan="6" class="empty-state">No new rows</td></tr>';
+      document.getElementById('escPushBtn').style.display = 'none';
+      return;
+    }
+    status.innerHTML = `<strong>${rows.length}</strong> new row(s) to add` + (skipped ? ` · <span style="color:var(--text-3)">${skipped} skipped (already in sheet)</span>` : '');
+    body.innerHTML = rows.map(row => `<tr>
+      <td>${row[1]||'—'}</td><td>${row[2]||'—'}</td><td>${row[4]||'—'}</td>
+      <td>${row[9]||'—'}</td><td>${row[10]||'—'}</td><td>${row[15]||'—'}</td>
+    </tr>`).join('');
+    document.getElementById('escPushBtn').style.display = '';
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--pink)">Error: ${e.message}</span>`;
+  }
+  sec.scrollIntoView({behavior:'smooth'});
+}
+
+async function pushEscalation() {
+  const btn = document.getElementById('escPushBtn');
+  const status = document.getElementById('escStatus');
+  btn.disabled = true; btn.textContent = 'Pushing…';
+  try {
+    const r = await apiPost('/api/breach1/escalation-push');
+    if (!r || r.error) {
+      status.innerHTML = `<span style="color:var(--pink)">Error: ${r?.error||'unknown'}</span>`;
+      toast('Push failed: ' + (r?.error||'unknown'), 'error');
+    } else {
+      status.innerHTML = `<span style="color:var(--success)">✓ ${r.appended} row(s) pushed to Google Sheet</span>`;
+      toast(`${r.appended} rows pushed to escalation sheet`, 'success');
+      btn.style.display = 'none';
+    }
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--pink)">Error: ${e.message}</span>`;
+    toast('Push error: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Push to Google Sheet';
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BREACH 4 — ROUTER MISUSE
+// ═══════════════════════════════════════════════════════════════════════════════
+let b4Cases = [];
+let b4Selected = new Set();
+let b4TemplateInfo = null;
+
+async function syncBreach4() {
+  const el = document.getElementById('b4-sync-status');
+  el.textContent = 'Syncing…';
+  try {
+    const r = await apiPost('/api/breach4/sync');
+    if (!r || r.error) { toast('Sync failed: '+(r?.error||'unknown'), 'error'); el.textContent=''; return; }
+    toast(`FP4 sync: ${r.new_cases} new, ${r.updated} updated`, 'success');
+    el.textContent = 'Synced ' + new Date().toLocaleTimeString();
+    await Promise.all([loadB4Summary(), loadB4Cases(), loadB4Filters()]);
+  } catch(e) { toast('Sync error: '+e.message, 'error'); el.textContent=''; }
+}
+
+async function loadB4Summary() {
+  const s = await apiGet('/api/breach4/summary');
+  if (!s) return;
+  document.getElementById('b4k-total').textContent = s.total ?? '—';
+  document.getElementById('b4k-partners').textContent = s.partners ?? '—';
+  document.getElementById('b4k-penalty').textContent = s.penalty_done ?? '—';
+  document.getElementById('b4k-epend').textContent = (s.by_email_state?.pending) ?? '—';
+  document.getElementById('b4k-esent').textContent = (s.by_email_state?.sent) ?? '—';
+  const badge = document.getElementById('b4-badge');
+  if (badge) {
+    if (s.total > 0) { badge.style.display = 'inline'; badge.textContent = s.total; }
+    else badge.style.display = 'none';
+  }
+}
+
+async function loadB4Filters() {
+  const partners = await apiGet('/api/breach4/partners');
+  if (!partners) return;
+  const sel = document.getElementById('b4fPartner');
+  sel.innerHTML = '<option value="all">All Partners</option>' +
+    partners.map(p => `<option value="${p}">${p}</option>`).join('');
+}
+
+async function loadB4Cases() {
+  const partner = document.getElementById('b4fPartner').value;
+  const emailState = document.getElementById('b4fEmail').value;
+  const search = document.getElementById('b4fSearch').value;
+  const data = await apiGet('/api/breach4/cases', {partner, email_state: emailState, search});
+  b4Cases = Array.isArray(data) ? data : [];
+
+  document.getElementById('b4fCount').textContent = `${b4Cases.length} case(s)`;
+  const tbody = document.getElementById('b4Body');
+
+  if (!b4Cases.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No cases found</td></tr>';
+    return;
+  }
+
+  // Group by partner
+  const groups = {};
+  b4Cases.forEach(c => {
+    const p = c.partner_name || 'Unknown';
+    if (!groups[p]) groups[p] = [];
+    groups[p].push(c);
+  });
+  let html = '';
+  for (const [partner, items] of Object.entries(groups).sort(([a],[b])=>a.localeCompare(b))) {
+    const email = items[0]?.partner_email || '';
+    const pKey = 'b4_' + partner.replace(/[^a-zA-Z0-9]/g,'');
+    html += `<tr class="partner-header" onclick="togglePartnerGroup('${pKey}')">
+      <td colspan="9"><div class="partner-header-inner">
+        <span class="day-chevron" id="pch-${pKey}">▼</span>
+        <span class="partner-label">${partner}</span>
+        <span class="partner-meta">${items.length} case(s)</span>
+        ${email ? `<span class="partner-email-tag">${email}</span>` : '<span style="font-size:11px;color:#EF4444">No email</span>'}
+      </div></td>
+    </tr>`;
+    items.forEach(c => {
+      const emailBadge = c.email_state === 'sent'
+        ? '<span class="pill pill-yes">Sent</span>'
+        : '<span class="pill pill-no">Pending</span>';
+      const penaltyBadge = c.penalty_done === 'Yes'
+        ? '<span class="pill pill-yes">Yes</span>'
+        : '<span class="pill pill-no">No</span>';
+      html += `<tr class="pg-${pKey}">
+        <td class="check-col"><input type="checkbox" class="b4-chk" value="${c.id}" ${b4Selected.has(c.id)?'checked':''} onchange="b4HandleChk(this)"/></td>
+        <td style="font-size:12px">${c.partner_name||'—'}</td>
+        <td><code style="font-size:11px">${c.device_id||'—'}</code></td>
+        <td>${c.customer_details||'—'}</td>
+        <td>${c.date_reported||'—'}</td>
+        <td>${c.reporting_channel||'—'}</td>
+        <td>${c.penalty_amount ? '₹'+c.penalty_amount : '—'}</td>
+        <td>${penaltyBadge}</td>
+        <td>${emailBadge}</td>
+      </tr>`;
+    });
+  }
+  tbody.innerHTML = html;
+  updateB4SelBar();
+}
+
+function b4HandleChk(el) {
+  const id = parseInt(el.value);
+  if (el.checked) b4Selected.add(id);
+  else b4Selected.delete(id);
+  updateB4SelBar();
+}
+
+function b4SelectAll(checked) {
+  document.querySelectorAll('.b4-chk').forEach(el => {
+    el.checked = checked;
+    const id = parseInt(el.value);
+    if (checked) b4Selected.add(id); else b4Selected.delete(id);
+  });
+  updateB4SelBar();
+}
+
+function b4ClearSelection() { b4Selected.clear(); loadB4Cases(); }
+
+function updateB4SelBar() {
+  const bar = document.getElementById('b4SelBar');
+  const count = b4Selected.size;
+  document.getElementById('b4SelCount').textContent = count;
+  bar.style.display = count > 0 ? 'flex' : 'none';
+}
+
+async function showB4EmailComposer() {
+  const el = document.getElementById('b4EmailComposer');
+  el.style.display = '';
+  document.getElementById('b4ec-count').textContent = b4Selected.size;
+
+  if (!b4TemplateInfo) {
+    b4TemplateInfo = await apiGet('/api/breach4/template');
+    if (!b4TemplateInfo) return;
+  }
+
+  const toggles = document.getElementById('b4VarToggles');
+  const grid = document.getElementById('b4VarGrid');
+  toggles.innerHTML = '';
+  grid.innerHTML = '';
+
+  Object.entries(b4TemplateInfo.proof_variables).forEach(([k, v]) => {
+    toggles.innerHTML += `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px">
+      <input type="checkbox" class="b4-var-chk" value="${k}" checked onchange="previewB4Email()"/> ${v.label}
+    </label>`;
+    grid.innerHTML += `<div class="fg"><label>${v.label}</label><input type="text" class="b4-var-val" data-var="${k}" placeholder="Auto-filled from case" oninput="previewB4Email()"/></div>`;
+  });
+
+  el.scrollIntoView({behavior:'smooth'});
+  previewB4Email();
+}
+
+async function previewB4Email() {
+  const lang = document.getElementById('b4ec-lang').value;
+  const selected = [...document.querySelectorAll('.b4-var-chk:checked')].map(x => x.value);
+  const vals = {};
+  document.querySelectorAll('.b4-var-val').forEach(el => { if (el.value) vals[el.dataset.var] = el.value; });
+
+  const r = await apiPost('/api/breach4/preview-email', { language: lang, selected_vars: selected, values: vals });
+  if (!r || r.error) return;
+  document.getElementById('b4EmailPreview').style.display = '';
+  document.getElementById('b4ep-subject').textContent = r.subject;
+  document.getElementById('b4ep-body').innerHTML = r.body_html;
+}
+
+async function sendB4Email(isTest) {
+  const caseIds = [...b4Selected];
+  if (!caseIds.length) { toast('Select cases first', 'warning'); return; }
+  const lang = document.getElementById('b4ec-lang').value;
+  const selected = [...document.querySelectorAll('.b4-var-chk:checked')].map(x => x.value);
+  const vals = {};
+  document.querySelectorAll('.b4-var-val').forEach(el => { if (el.value) vals[el.dataset.var] = el.value; });
+  const testEmail = document.getElementById('b4ec-test-email').value;
+
+  if (!isTest && !confirm(`Send emails to ${caseIds.length} partner(s)? This action cannot be undone.`)) return;
+
+  const btn = isTest ? document.getElementById('b4TestSendBtn') : document.getElementById('b4RealSendBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+
+  try {
+    const r = await apiPost('/api/breach4/send-email', {
+      case_ids: caseIds, language: lang, selected_vars: selected, values: vals,
+      test_email: isTest ? testEmail : '',
+    });
+    if (r) toast(`${r.sent}/${r.total} emails sent${isTest?' (TEST)':''}`, r.sent === r.total ? 'success' : 'warning');
+    if (!isTest) { b4ClearSelection(); await loadB4Cases(); }
+  } catch(e) { toast('Send error: '+e.message, 'error'); }
+  btn.disabled = false; btn.textContent = isTest ? 'Send Test' : 'Send to Partners';
+}
+
+async function showB4EmailLog() {
+  document.getElementById('b4EmailLogSection').style.display = '';
+  const logs = await apiGet('/api/breach4/email-log');
+  const el = document.getElementById('b4EmailLogBody');
+  if (!logs || !logs.length) { el.innerHTML = '<div class="empty-state">No emails sent yet</div>'; return; }
+  el.innerHTML = logs.map(l => {
+    const icon = l.is_test ? 'test' : l.status==='sent' ? 'ok' : 'fail';
+    const emoji = l.is_test ? '🧪' : l.status==='sent' ? '✓' : '✗';
+    return `<div class="log-entry">
+      <div class="log-icon ${icon}">${emoji}</div>
+      <div class="log-details">
+        <div class="ld-top">${l.partner_name || '—'} → ${l.recipient_email}${l.is_test?' (TEST)':''}</div>
+        <div class="ld-bot">FP4 · ${l.language} · ${l.sent_at} ${l.error ? '· Error: '+l.error : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('b4EmailLogSection').scrollIntoView({behavior:'smooth'});
+}
+
+async function previewB4Escalation() {
+  const sec = document.getElementById('b4EscalationSection');
+  sec.style.display = '';
+  const status = document.getElementById('b4EscStatus');
+  const body = document.getElementById('b4EscBody');
+  status.innerHTML = '<span style="color:var(--text-3)">Loading preview…</span>';
+  body.innerHTML = '<tr><td colspan="5" class="loading-state">Loading…</td></tr>';
+  try {
+    const r = await apiGet('/api/breach4/escalation-preview');
+    if (!r || r.error) { status.innerHTML = `<span style="color:var(--pink)">${r?.error||'Error'}</span>`; return; }
+    const rows = r.rows || [];
+    if (!rows.length) {
+      status.innerHTML = '<span style="color:var(--success)">No cases to push.</span>';
+      body.innerHTML = '<tr><td colspan="5" class="empty-state">No rows</td></tr>';
+      document.getElementById('b4EscPushBtn').style.display = 'none';
+      return;
+    }
+    status.innerHTML = `<strong>${rows.length}</strong> row(s) to write`;
+    body.innerHTML = rows.map(row => `<tr>
+      <td>${row[1]||'—'}</td><td>${row[4]||'—'}</td><td>${row[2]||'—'}</td>
+      <td>${row[10]||'—'}</td><td>${row[11]||'—'}</td>
+    </tr>`).join('');
+    document.getElementById('b4EscPushBtn').style.display = '';
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--pink)">Error: ${e.message}</span>`;
+  }
+  sec.scrollIntoView({behavior:'smooth'});
+}
+
+async function pushB4Escalation() {
+  const btn = document.getElementById('b4EscPushBtn');
+  const status = document.getElementById('b4EscStatus');
+  btn.disabled = true; btn.textContent = 'Pushing…';
+  try {
+    const r = await apiPost('/api/breach4/escalation-push');
+    if (!r || r.error) {
+      status.innerHTML = `<span style="color:var(--pink)">Error: ${r?.error||'unknown'}</span>`;
+      toast('Push failed: ' + (r?.error||'unknown'), 'error');
+    } else {
+      status.innerHTML = `<span style="color:var(--success)">✓ ${r.appended} row(s) updated in Google Sheet</span>`;
+      toast(`${r.appended} rows updated in FP4 sheet`, 'success');
+      btn.style.display = 'none';
+    }
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--pink)">Error: ${e.message}</span>`;
+    toast('Push error: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Push to Google Sheet';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1122,8 +1926,8 @@ async function loadAll() {
   await loadRepeatCustomers();
   await Promise.all([loadSummary(), loadCases(), loadZones(), loadCommsBadge()]);
   // Auto-load B1 and B4 in background
-  loadB1();
-  loadB4();
+  loadB1Summary(); loadB1Cases(); loadB1Filters();
+  loadB4Summary(); loadB4Cases(); loadB4Filters();
 }
 
 // Auto-refresh every 30 seconds
@@ -1135,8 +1939,8 @@ setInterval(() => {
     loadCommsBadge();
     if (currentTab === 'breach2') loadCases();
   }
-  if (currentTab === 'breach1') loadB1();
-  if (currentTab === 'breach4') loadB4();
+  if (currentTab === 'breach1') { loadB1Summary(); loadB1Cases(); }
+  if (currentTab === 'breach4') { loadB4Summary(); loadB4Cases(); }
 }, 30000);
 </script>
 </body>

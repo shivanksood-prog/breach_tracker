@@ -21,7 +21,7 @@ HEADERS = [
     "new_install_flag", "install_emp_role", "install_emp_id", "install_name",
     "extra_amount", "technician_name", "voluntary_tip", "state", "detected_at",
     "customer_refunded_at", "customer_comms_at", "partner_penalty_at",
-    "refund_payout_link", "previous_state",
+    "refund_payout_link", "previous_state", "comms_notes",
 ]
 COL = {h: i for i, h in enumerate(HEADERS)}
 
@@ -61,7 +61,7 @@ def _read_all() -> list[list]:
     svc = _get_service()
     result = svc.spreadsheets().values().get(
         spreadsheetId=SHEET_ID,
-        range="Cases!A2:V10000",
+        range="Cases!A2:W10000",
     ).execute()
     return result.get("values", [])
 
@@ -197,7 +197,7 @@ def get_all_zones() -> list:
     return sorted(zones)
 
 
-def advance_state(ticket_id: str, new_state: str) -> bool:
+def advance_state(ticket_id: str, new_state: str, comms_notes: str = None) -> bool:
     data = _read_all()
     idx = _find_row_index(ticket_id, data)
     if idx == -1:
@@ -215,6 +215,8 @@ def advance_state(ticket_id: str, new_state: str) -> bool:
     ts_col = STATE_TS_COL.get(new_state)
     if ts_col:
         updates[ts_col] = ts
+    if comms_notes is not None and new_state == "customer_comms":
+        updates["comms_notes"] = comms_notes
 
     _batch_update_row(row_num, updates)
     return True
@@ -332,6 +334,86 @@ def upsert_case(data_dict: dict):
             insertDataOption="INSERT_ROWS",
             body={"values": [new_row]},
         ).execute()
+
+
+def get_visibility_matrix() -> dict:
+    """Compute the visibility dashboard matrix for B2 cases."""
+    rows = _read_all()
+    cases = [_row_to_dict(r) for r in rows]
+
+    # Compute today, today-1, today-2 in IST
+    now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+    today = now.strftime("%Y-%m-%d")
+    day_1 = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    day_2 = (now - timedelta(days=2)).strftime("%Y-%m-%d")
+    cutoff = "2026-03-11"
+
+    # Identify repeat (flagged) customers: 2nd+ occurrence of same mobile by detected_at order
+    mobile_cases = {}
+    for c in cases:
+        mob = (c.get("customer_mobile") or "").strip()
+        if mob:
+            mobile_cases.setdefault(mob, []).append(c)
+    flagged_tids = set()
+    for mob, mc in mobile_cases.items():
+        if len(mc) >= 2:
+            mc.sort(key=lambda x: x.get("detected_at") or "")
+            for dup in mc[1:]:
+                flagged_tids.add(dup.get("ticket_id"))
+
+    def _date_of(ts):
+        return (ts or "")[:10]
+
+    def _compute_column(case_list):
+        """Compute all metric rows for a list of cases."""
+        claimed = len(case_list)
+        no_amt = sum(1 for c in case_list if not c.get("extra_amount"))
+        refunded = sum(1 for c in case_list if c.get("customer_refunded_at"))
+        communicated = sum(1 for c in case_list if c.get("customer_comms_at"))
+        penalty = sum(1 for c in case_list if c.get("partner_penalty_at"))
+        repeat = sum(1 for c in case_list if c.get("ticket_id") in flagged_tids)
+        amt_claimed = sum(c.get("extra_amount") or 0 for c in case_list)
+        amt_refunded = sum(c.get("extra_amount") or 0 for c in case_list if c.get("customer_refunded_at"))
+        return [claimed, no_amt, refunded, communicated, penalty, repeat,
+                round(amt_claimed, 2), round(amt_refunded, 2)]
+
+    def _daily_column(day):
+        """For daily columns, each metric uses its own date field."""
+        claimed = [c for c in cases if _date_of(c.get("detected_at")) == day]
+        no_amt = [c for c in claimed if not c.get("extra_amount")]
+        refunded = [c for c in cases if _date_of(c.get("customer_refunded_at")) == day]
+        communicated = [c for c in cases if _date_of(c.get("customer_comms_at")) == day]
+        penalty = [c for c in cases if _date_of(c.get("partner_penalty_at")) == day]
+        repeat = [c for c in claimed if c.get("ticket_id") in flagged_tids]
+        amt_claimed = sum(c.get("extra_amount") or 0 for c in claimed)
+        amt_refunded = sum(c.get("extra_amount") or 0 for c in refunded)
+        return [len(claimed), len(no_amt), len(refunded), len(communicated), len(penalty),
+                len(repeat), round(amt_claimed, 2), round(amt_refunded, 2)]
+
+    # Period columns: filter cases by ticket_added_time_ist, then count states
+    post_mar = [c for c in cases if _date_of(c.get("ticket_added_time_ist")) >= cutoff]
+    pre_mar = [c for c in cases if _date_of(c.get("ticket_added_time_ist")) < cutoff]
+
+    col_today = _daily_column(today)
+    col_day1 = _daily_column(day_1)
+    col_day2 = _daily_column(day_2)
+    col_post = _compute_column(post_mar)
+    col_pre = _compute_column(pre_mar)
+
+    labels = [
+        "#Claimed by customers", "#Claims without amount",
+        "#Customer Refunded", "#Customer Communicated",
+        "#Partner Penalty Applied", "#Repeat Customer Flagged",
+        "Total Amount Claimed", "Total Amount Refunded",
+    ]
+
+    return {
+        "columns": ["Today", "Today-1", "Today-2", "Post Mar 11 (All)", "Pre Mar 11 (PayG Install)"],
+        "rows": [
+            {"label": labels[i], "values": [col_today[i], col_day1[i], col_day2[i], col_post[i], col_pre[i]]}
+            for i in range(len(labels))
+        ],
+    }
 
 
 def get_repeat_customers() -> dict:

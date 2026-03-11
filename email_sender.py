@@ -62,18 +62,21 @@ def get_template_info() -> dict:
     }
 
 
-def _build_proof(selected_vars: list, values: dict, lang: str) -> str:
-    """Build proof section from selected variables only."""
+def _build_proof_from_template(template: dict, selected_vars: list, values: dict, lang: str) -> str:
+    """Build proof section from selected variables of any template."""
     lines = []
     for var_key in selected_vars:
-        var_def = FP1_TEMPLATE["proof_variables"].get(var_key)
+        var_def = template["proof_variables"].get(var_key)
         if not var_def:
             continue
         template_str = var_def[lang]
-        # Replace placeholder with value
         rendered = template_str.replace("{{" + var_key + "}}", str(values.get(var_key, "")))
         lines.append(rendered)
     return "\n".join(lines)
+
+
+def _build_proof(selected_vars: list, values: dict, lang: str) -> str:
+    return _build_proof_from_template(FP1_TEMPLATE, selected_vars, values, lang)
 
 
 def render_email(language: str, selected_vars: list, values: dict) -> dict:
@@ -227,16 +230,7 @@ def get_fp4_template_info() -> dict:
 
 
 def _build_fp4_proof(selected_vars: list, values: dict, lang: str) -> str:
-    """Build proof section from selected FP4 variables."""
-    lines = []
-    for var_key in selected_vars:
-        var_def = FP4_TEMPLATE["proof_variables"].get(var_key)
-        if not var_def:
-            continue
-        template_str = var_def[lang]
-        rendered = template_str.replace("{{" + var_key + "}}", str(values.get(var_key, "")))
-        lines.append(rendered)
-    return "\n".join(lines)
+    return _build_proof_from_template(FP4_TEMPLATE, selected_vars, values, lang)
 
 
 def render_fp4_email(language: str, selected_vars: list, values: dict) -> dict:
@@ -396,15 +390,7 @@ def get_fp2_template_info() -> dict:
 
 
 def _build_fp2_proof(selected_vars: list, values: dict, lang: str) -> str:
-    lines = []
-    for var_key in selected_vars:
-        var_def = FP2_TEMPLATE["proof_variables"].get(var_key)
-        if not var_def:
-            continue
-        template_str = var_def[lang]
-        rendered = template_str.replace("{{" + var_key + "}}", str(values.get(var_key, "")))
-        lines.append(rendered)
-    return "\n".join(lines)
+    return _build_proof_from_template(FP2_TEMPLATE, selected_vars, values, lang)
 
 
 def render_fp2_email(language: str, selected_vars: list, values: dict) -> dict:
@@ -538,15 +524,19 @@ def _body_to_html(body: str) -> str:
 
 import os
 
-GMAIL_OAUTH2 = {
-    "client_id": os.environ.get("GMAIL_CLIENT_ID", ""),
-    "client_secret": os.environ.get("GMAIL_CLIENT_SECRET", ""),
-}
+_gmail_access_token_cache = {"token": None, "expires_at": 0}
+
+
+def _get_gmail_oauth2_config():
+    """Get Gmail OAuth2 client credentials (lazy, reads env at call time)."""
+    return {
+        "client_id": os.environ.get("GMAIL_CLIENT_ID", ""),
+        "client_secret": os.environ.get("GMAIL_CLIENT_SECRET", ""),
+    }
 
 
 def _get_gmail_refresh_token():
     """Get Gmail OAuth2 refresh token from env var or config."""
-    import os
     token = os.environ.get("GMAIL_REFRESH_TOKEN")
     if token:
         return token
@@ -554,28 +544,32 @@ def _get_gmail_refresh_token():
     return cfg.get("gmail_refresh_token", "")
 
 
-def _send_via_gmail_oauth2(msg: MIMEMultipart) -> dict:
+def _send_via_gmail_oauth2(msg: MIMEMultipart, refresh_token: str) -> dict:
     """Send email via Gmail API using OAuth2 refresh token (works on Railway)."""
-    refresh_token = _get_gmail_refresh_token()
-    if not refresh_token:
-        return {"ok": False, "error": "No Gmail refresh token configured"}
-
-    # Get access token
-    resp = requests.post("https://oauth2.googleapis.com/token", data={
-        "client_id": GMAIL_OAUTH2["client_id"],
-        "client_secret": GMAIL_OAUTH2["client_secret"],
-        "refresh_token": refresh_token,
-        "grant_type": "refresh_token",
-    })
-    token_data = resp.json()
-    if "access_token" not in token_data:
-        return {"ok": False, "error": f"OAuth2 token refresh failed: {token_data.get('error_description', token_data)}"}
+    import time
+    cache = _gmail_access_token_cache
+    if cache["token"] and time.time() < cache["expires_at"] - 60:
+        access_token = cache["token"]
+    else:
+        oauth_cfg = _get_gmail_oauth2_config()
+        resp = requests.post("https://oauth2.googleapis.com/token", data={
+            "client_id": oauth_cfg["client_id"],
+            "client_secret": oauth_cfg["client_secret"],
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        })
+        token_data = resp.json()
+        if "access_token" not in token_data:
+            return {"ok": False, "error": f"OAuth2 token refresh failed: {token_data.get('error_description', token_data)}"}
+        access_token = token_data["access_token"]
+        cache["token"] = access_token
+        cache["expires_at"] = time.time() + token_data.get("expires_in", 3600)
 
     # Send via Gmail API
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
     r = requests.post(
         "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-        headers={"Authorization": f"Bearer {token_data['access_token']}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
         json={"raw": raw},
     )
     if r.status_code == 200:
@@ -620,7 +614,7 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str,
     # Try Gmail API OAuth2 first (works on Railway where SMTP is blocked)
     refresh_token = _get_gmail_refresh_token()
     if refresh_token:
-        result = _send_via_gmail_oauth2(msg)
+        result = _send_via_gmail_oauth2(msg, refresh_token)
         if result["ok"]:
             return result
         # Gmail API failed, try SMTP fallback
