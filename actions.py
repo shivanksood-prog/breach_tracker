@@ -41,7 +41,7 @@ def generate_refund_csv(cases: list) -> str:
     return out.getvalue()
 
 
-def generate_penalty_csv(cases: list) -> str:
+def _aggregate_penalty(cases: list) -> dict:
     """Aggregate by partner, sum amounts (negative)."""
     partners: dict = {}
     for c in cases:
@@ -50,13 +50,64 @@ def generate_penalty_csv(cases: list) -> str:
         if pid not in partners:
             partners[pid] = {"amount": 0, "name": c.get("current_partner_name", "")}
         partners[pid]["amount"] += amt
+    return partners
 
+
+def generate_penalty_csv(cases: list) -> str:
+    partners = _aggregate_penalty(cases)
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["Partner Id", "Amount", "Remark"])
     for pid, data in partners.items():
         w.writerow([pid, -abs(data["amount"]), "Breach Fundamental Principle 2 (PX2026)"])
     return out.getvalue()
+
+
+def generate_penalty_xlsx(cases: list) -> bytes:
+    """Generate penalty Excel file with formatting."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    partners = _aggregate_penalty(cases)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Partner Penalty"
+
+    # Header style
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
+    hdr_align = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+
+    headers = ["Partner Id", "Amount", "Remark"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = hdr_align
+        cell.border = thin_border
+
+    # Data rows
+    row_idx = 2
+    for pid, data in partners.items():
+        ws.cell(row=row_idx, column=1, value=pid).border = thin_border
+        amt_cell = ws.cell(row=row_idx, column=2, value=-abs(data["amount"]))
+        amt_cell.number_format = '#,##0'
+        amt_cell.border = thin_border
+        ws.cell(row=row_idx, column=3, value="Breach Fundamental Principle 2 (PX2026)").border = thin_border
+        row_idx += 1
+
+    # Auto-width columns
+    ws.column_dimensions["A"].width = 20
+    ws.column_dimensions["B"].width = 15
+    ws.column_dimensions["C"].width = 45
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 def generate_partner_comms_csv(cases: list) -> str:

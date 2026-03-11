@@ -441,7 +441,10 @@ def csv_penalty():
     cases = ([sheets_db.get_case(t) for t in tids] if tids
              else sheets_db.get_all_cases(state="customer_comms"))
     cases = [c for c in cases if c]
-    return jsonify({"csv": actions.generate_penalty_csv(cases), "count": len(cases)})
+    xlsx_bytes = actions.generate_penalty_xlsx(cases)
+    return Response(xlsx_bytes,
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=partner_penalty.xlsx"})
 
 
 @app.route("/api/csv/partner-comms", methods=["POST"])
@@ -455,10 +458,11 @@ def csv_partner_comms_bulk():
 
 @app.route("/api/download/penalty-csv")
 def dl_penalty():
-    cases   = sheets_db.get_all_cases(state="customer_comms")
-    csv_str = actions.generate_penalty_csv(cases)
-    return Response(csv_str, mimetype="text/csv",
-                    headers={"Content-Disposition": "attachment; filename=partner_penalty.csv"})
+    cases = sheets_db.get_all_cases(state="customer_comms")
+    xlsx_bytes = actions.generate_penalty_xlsx(cases)
+    return Response(xlsx_bytes,
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=partner_penalty.xlsx"})
 
 
 @app.route("/api/download/partner-comms-csv")

@@ -6,3 +6,4 @@ gunicorn>=21.2
 gevent>=23.9
 google-api-python-client>=2.100
 google-auth>=2.23
+openpyxl>=3.1

@@ -299,7 +299,7 @@
       <input type="file" id="refundUploadInput" accept=".csv" style="display:none" onchange="handleRefundUpload(this)"/>
       <button class="btn btn-success btn-sm" onclick="document.getElementById('refundUploadInput').click()">Upload Refund Result</button>
       <span class="action-label" style="margin-left:12px">Penalty</span>
-      <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">Download Penalty CSV</button>
+      <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">Download Penalty Excel</button>
       <input type="file" id="penaltyUploadInput" accept=".csv" style="display:none" onchange="handlePenaltyUpload(this)"/>
       <button class="btn btn-info btn-sm" onclick="document.getElementById('penaltyUploadInput').click()">Upload Penalty Result</button>
       <span class="action-label" style="margin-left:12px">Partner Email</span>
@@ -674,7 +674,7 @@
 <div id="selBar">
   <span>Selected: <span class="sel-count" id="selCount">0</span></span>
   <button class="btn btn-outline btn-sm" onclick="dlBulk('refund')">Refund CSV</button>
-  <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">Penalty CSV</button>
+  <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">Penalty Excel</button>
   <button class="btn btn-success btn-sm" onclick="bulkConfirmComms()">Confirm Comms Done</button>
   <button class="btn btn-outline btn-sm" onclick="clearSelection()">Clear</button>
 </div>
@@ -1187,40 +1187,39 @@ function updateSelBar() {
 
 // ── CSV ──────────────────────────────────────────────────────────────────────
 
-function dlBulk(type) {
+async function dlBulk(type) {
   const tids = [...selectedCases];
-  let filtered;
-  if (type === 'refund') {
-    filtered = cases.filter(c => tids.length ? tids.includes(String(c.ticket_id)) : c.state === 'detected');
-  } else {
-    filtered = cases.filter(c => tids.length ? tids.includes(String(c.ticket_id)) : c.state === 'customer_comms');
+
+  if (type === 'penalty') {
+    // Penalty returns xlsx from API
+    const base = getApiUrl();
+    if (!base) return;
+    let filtered = cases.filter(c => tids.length ? tids.includes(String(c.ticket_id)) : c.state === 'customer_comms');
+    if (!filtered.length) { toast('No cases to export', 'error'); return; }
+    try {
+      const resp = await fetch(base + '/api/csv/penalty', {method:'POST', headers:authHeaders(), body:JSON.stringify({ticket_ids:tids})});
+      if (!resp.ok) { toast('Failed','error'); return; }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='partner_penalty.xlsx'; a.click();
+      URL.revokeObjectURL(url);
+      toast('Downloaded penalty → partner_penalty.xlsx','success');
+    } catch(e) { toast('API error: '+e.message,'error'); }
+    return;
   }
+
+  let filtered = cases.filter(c => tids.length ? tids.includes(String(c.ticket_id)) : c.state === 'detected');
   if (!filtered.length) { toast('No cases to export', 'error'); return; }
 
-  let csv;
-  if (type === 'refund') {
-    csv = 'Name of Contact,Payout Link Amount,Contact Phone Number,Contact Email ID,Send Link to Phone Number,Send Link to Mail ID,Contact Type,Payout Purpose,Payout Description,Reference ID(optional),Internal notes(optional): Title,Internal notes(optional): Description\n';
-    filtered.forEach(c => {
-      const amt = c.extra_amount ? Math.round(c.extra_amount) : 0;
-      csv += `Wiom User,${amt},${c.customer_mobile||''},,No,No,customer,refund,Refund for Extra money taken,${c.ticket_id||''},,\n`;
-    });
-  } else {
-    // Aggregate by partner for penalty
-    const partners = {};
-    filtered.forEach(c => {
-      const pid = c.current_partner_account_id || 'unknown';
-      if (!partners[pid]) partners[pid] = {amount:0, name:c.current_partner_name||''};
-      partners[pid].amount += (c.extra_amount||0);
-    });
-    csv = 'Partner Id,Amount,Remark\n';
-    Object.entries(partners).forEach(([pid,d]) => {
-      csv += `${pid},${-Math.abs(d.amount)},Breach Fundamental Principle 2 (PX2026)\n`;
-    });
-  }
+  let csv = 'Name of Contact,Payout Link Amount,Contact Phone Number,Contact Email ID,Send Link to Phone Number,Send Link to Mail ID,Contact Type,Payout Purpose,Payout Description,Reference ID(optional),Internal notes(optional): Title,Internal notes(optional): Description\n';
+  filtered.forEach(c => {
+    const amt = c.extra_amount ? Math.round(c.extra_amount) : 0;
+    csv += `Wiom User,${amt},${c.customer_mobile||''},,No,No,customer,refund,Refund for Extra money taken,${c.ticket_id||''},,\n`;
+  });
 
   const blob = new Blob([csv], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=type+'.csv'; a.click();
+  const a = document.createElement('a'); a.href=url; a.download='refund.csv'; a.click();
   URL.revokeObjectURL(url);
   toast(`Downloaded ${filtered.length} case(s)`, 'success');
 }

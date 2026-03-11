@@ -588,7 +588,7 @@
       <input type="file" id="refundUploadInput" accept=".csv" style="display:none" onchange="handleRefundUpload(this)"/>
       <button class="btn btn-success btn-sm" onclick="document.getElementById('refundUploadInput').click()">⬆ Upload Refund Result</button>
       <span class="action-label" style="margin-left:12px">Penalty</span>
-      <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">⬇ Penalty CSV (Comms Done)</button>
+      <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">⬇ Penalty Excel (Comms Done)</button>
       <input type="file" id="penaltyUploadInput" accept=".csv" style="display:none" onchange="handlePenaltyUpload(this)"/>
       <button class="btn btn-info btn-sm" onclick="document.getElementById('penaltyUploadInput').click()">⬆ Upload Penalty Result</button>
       <span class="action-label" style="margin-left:12px">Partner Email</span>
@@ -771,7 +771,7 @@
 <div id="selBar">
   <span>Selected: <span class="sel-count" id="selCount">0</span></span>
   <button class="btn btn-outline btn-sm" onclick="dlBulk('refund')">⬇ Refund CSV</button>
-  <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">⬇ Penalty CSV</button>
+  <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">⬇ Penalty Excel</button>
   <button class="btn btn-success btn-sm" onclick="bulkConfirmComms()">✓ Confirm Comms Done</button>
   <button class="btn btn-outline btn-sm" onclick="clearSelection()">✕ Clear</button>
 </div>
@@ -1837,6 +1837,17 @@ async function dlBulk(type) {
   const tids = [...selectedCases];
   // For refund, allow downloading all detected when nothing selected
   if (!tids.length && type !== 'refund') { toast('No cases selected', 'error'); return; }
+  if (type === 'penalty') {
+    // Penalty returns xlsx binary
+    const resp = await fetch('/api/csv/penalty', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ticket_ids:tids})});
+    if (!resp.ok) { toast('Failed','error'); return; }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='partner_penalty.xlsx'; a.click();
+    URL.revokeObjectURL(url);
+    toast('Downloaded penalty → partner_penalty.xlsx','success');
+    return;
+  }
   const r = await api('POST', '/api/csv/'+type, {ticket_ids: tids});
   if (!r.csv) { toast('Failed', 'error'); return; }
   const blob = new Blob([r.csv], {type:'text/csv'});
