@@ -970,7 +970,7 @@ async function loadVisibility() {
     const isMoney = r.label.startsWith('Total');
     const isTAT = r.label.includes('TAT');
     return `<tr><td style="font-weight:600;white-space:nowrap">${r.label}</td>${r.values.map(v =>
-      `<td style="text-align:right;font-variant-numeric:tabular-nums">${isMoney ? '₹'+Number(v).toLocaleString('en-IN') : isTAT && typeof v==='number' ? v+'h' : v}</td>`
+      `<td style="text-align:right;font-variant-numeric:tabular-nums">${isMoney ? '₹'+Number(v).toLocaleString('en-IN') : isTAT && typeof v==='number' ? v+'m' : v}</td>`
     ).join('')}</tr>`;
   }).join('');
 }

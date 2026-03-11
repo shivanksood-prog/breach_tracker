@@ -369,18 +369,20 @@ def get_visibility_matrix() -> dict:
         if not ts:
             return None
         try:
-            return datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
+            # Handle ISO format with T separator (e.g. 2026-03-11T14:42:01.857+05:30)
+            clean = ts.replace("T", " ")[:19]
+            return datetime.strptime(clean, "%Y-%m-%d %H:%M:%S")
         except (ValueError, TypeError):
             return None
 
     def _median_refund_tat(case_list):
-        """Compute median refund TAT in hours for refunded cases."""
+        """Compute median refund TAT in minutes for refunded cases."""
         tats = []
         for c in case_list:
             t1 = _parse_ts(c.get("ticket_added_time_ist"))
             t2 = _parse_ts(c.get("customer_refunded_at"))
             if t1 and t2:
-                tats.append((t2 - t1).total_seconds() / 3600)
+                tats.append((t2 - t1).total_seconds() / 60)
         if not tats:
             return "—"
         tats.sort()
@@ -424,7 +426,7 @@ def get_visibility_matrix() -> dict:
         "#Customer Refunded", "#Customer Communicated",
         "#Partner Penalty Applied", "#Repeat Customer Flagged",
         "Total Amount Claimed", "Total Amount Refunded",
-        "Median Refund TAT (hrs)",
+        "Median Refund TAT (min)",
     ]
 
     return {
