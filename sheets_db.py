@@ -272,16 +272,26 @@ def mark_refunded_by_mobile(mobile: str, payout_link_id: str) -> dict:
     return {"matched": False, "mobile": mobile}
 
 
+def _normalize_pid(pid) -> str:
+    """Normalize partner ID: strip '.0' suffix from Sheets float strings."""
+    s = str(pid or "").strip()
+    try:
+        return str(int(float(s)))
+    except (ValueError, TypeError):
+        return s
+
+
 def mark_penalty_by_upload(partner_id: str) -> dict:
     """Find cases by partner in 'customer_comms' state, advance to partner_penalty."""
     data = _read_all()
     advanced = []
+    norm_pid = _normalize_pid(partner_id)
 
     for i, row in enumerate(data):
         padded = row + [""] * (len(HEADERS) - len(row))
-        pid = str(padded[COL["current_partner_account_id"]] or "")
+        pid = _normalize_pid(padded[COL["current_partner_account_id"]])
         st = str(padded[COL["state"]] or "")
-        if st == "customer_comms" and pid == partner_id:
+        if st == "customer_comms" and pid == norm_pid:
             row_num = i + 2
             tid = str(padded[COL["ticket_id"]])
             ts = _now_ist()
