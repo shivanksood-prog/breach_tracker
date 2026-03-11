@@ -378,17 +378,9 @@ def get_visibility_matrix() -> dict:
                 round(amt_claimed, 2), round(amt_refunded, 2)]
 
     def _daily_column(day):
-        """For daily columns, each metric uses its own date field."""
-        claimed = [c for c in cases if _date_of(c.get("detected_at")) == day]
-        no_amt = [c for c in claimed if not c.get("extra_amount")]
-        refunded = [c for c in cases if _date_of(c.get("customer_refunded_at")) == day]
-        communicated = [c for c in cases if _date_of(c.get("customer_comms_at")) == day]
-        penalty = [c for c in cases if _date_of(c.get("partner_penalty_at")) == day]
-        repeat = [c for c in claimed if c.get("ticket_id") in flagged_tids]
-        amt_claimed = sum(c.get("extra_amount") or 0 for c in claimed)
-        amt_refunded = sum(c.get("extra_amount") or 0 for c in refunded)
-        return [len(claimed), len(no_amt), len(refunded), len(communicated), len(penalty),
-                len(repeat), round(amt_claimed, 2), round(amt_refunded, 2)]
+        """For daily columns, filter cases detected on that day, then count states."""
+        day_cases = [c for c in cases if _date_of(c.get("detected_at")) == day]
+        return _compute_column(day_cases)
 
     # Period columns: filter cases by ticket_added_time_ist, then count states
     # Exclude cases with no ticket_added_time_ist from pre_mar to avoid false matches
