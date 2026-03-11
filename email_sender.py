@@ -348,28 +348,33 @@ FP2_TEMPLATE = {
     "name": "FP2 — Extra Cash Collection",
     "fundamental_number": {"hi": "मूलभूत सिद्धांत 2", "en": "Fundamental Principle 2"},
     "fundamental_title": {
-        "hi": "Wiom Users से कोई अतिरिक्त पैसा न लें",
-        "en": "Do Not Collect Any Extra Money from Wiom Users",
+        "hi": "सभी Payments Wiom सिस्टम के ज़रिए ही Process करें",
+        "en": "All Payments Must Be Processed Through the Wiom System",
     },
     "case_reason": {
-        "hi": "ग्राहक से Wiom सिस्टम के बाहर अतिरिक्त राशि ली गई।",
-        "en": "Extra money was collected from the customer outside the Wiom system.",
+        "hi": "",  # Inline in body — not used separately
+        "en": "",
     },
     "proof_variables": {
-        "CUSTOMER_MOBILE": {
-            "label": "Customer Phone (first 4 digits)",
-            "hi": "ग्राहक फ़ोन नंबर: {{CUSTOMER_MOBILE}}XXXXXX",
-            "en": "Customer Phone Number: {{CUSTOMER_MOBILE}}XXXXXX",
+        "MASKED_NUMBER": {
+            "label": "Customer Phone (masked)",
+            "hi": "ग्राहक: {{MASKED_NUMBER}}",
+            "en": "Customer: {{MASKED_NUMBER}}",
         },
-        "EXTRA_AMOUNT": {
-            "label": "Extra Amount Collected",
-            "hi": "अतिरिक्त राशि: ₹{{EXTRA_AMOUNT}}",
-            "en": "Extra Amount: ₹{{EXTRA_AMOUNT}}",
+        "AMOUNT_COLLECTED": {
+            "label": "Amount Collected (₹)",
+            "hi": "ली गई राशि: ₹{{AMOUNT_COLLECTED}}",
+            "en": "Amount Collected: ₹{{AMOUNT_COLLECTED}}",
         },
-        "TICKET_ID": {
-            "label": "Kapture Ticket ID",
-            "hi": "Kapture Ticket: {{TICKET_ID}}",
-            "en": "Kapture Ticket: {{TICKET_ID}}",
+        "AMOUNT_REFUNDED": {
+            "label": "Amount Refunded to Customer (₹)",
+            "hi": "ग्राहक को वापस: ₹{{AMOUNT_REFUNDED}}",
+            "en": "Refunded to Customer: ₹{{AMOUNT_REFUNDED}}",
+        },
+        "AMOUNT_RECOVERED": {
+            "label": "Amount Recovered from Wallet (₹)",
+            "hi": "वॉलेट से वसूल: ₹{{AMOUNT_RECOVERED}}",
+            "en": "Recovered from Wallet: ₹{{AMOUNT_RECOVERED}}",
         },
     },
 }
@@ -394,26 +399,29 @@ def _build_fp2_proof(selected_vars: list, values: dict, lang: str) -> str:
 
 
 def render_fp2_email(language: str, selected_vars: list, values: dict) -> dict:
-    """Render FP2 email subject and body. Same structure as FP1/FP4."""
-    t = FP2_TEMPLATE
+    """Render FP2 email — custom body with inline violation details per Google Doc."""
+    v = {k: str(values.get(k, "")) for k in ("MASKED_NUMBER", "AMOUNT_COLLECTED", "AMOUNT_REFUNDED", "AMOUNT_RECOVERED")}
 
     if language == "hi":
-        subject = f"महत्वपूर्ण: Wiom {t['fundamental_number']['hi']} का उल्लंघन दर्ज — कृपया तुरंत समीक्षा करें"
-        proof = _build_fp2_proof(selected_vars, values, "hi")
-        body = f"""WIOM सिस्टम नोटिस।
+        subject = "महत्वपूर्ण: Wiom मूलभूत सिद्धांत 2 का उल्लंघन — सिस्टम द्वारा राशि वसूली"
+        body = f"""Wiom सिस्टम संदेश
 
-सिस्टम रिकॉर्ड के अनुसार Wiom {t['fundamental_number']['hi']} — {t['fundamental_title']['hi']} से संबंधित उल्लंघन दर्ज हुआ है।
+सिस्टम रिकॉर्ड के अनुसार Wiom मूलभूत सिद्धांत 2 — सभी Payments Wiom सिस्टम के ज़रिए ही Process करें से संबंधित उल्लंघन दर्ज हुआ है।
 
 उल्लंघन का विवरण:
-{t['case_reason']['hi']}
+आपके या आपके कर्मचारी द्वारा ग्राहक {v['MASKED_NUMBER']} से ₹{v['AMOUNT_COLLECTED']} की राशि ली गई थी।
+
+Wiom सिस्टम नियमों के अनुसार सभी भुगतान केवल Wiom सिस्टम के माध्यम से ही लिए जा सकते हैं। ग्राहक से सीधे भुगतान लेना अनुमत नहीं है।
+
+इस कारण सिस्टम द्वारा:
+• ग्राहक को ₹{v['AMOUNT_REFUNDED']} की राशि वापस कर दी गई है
+• आपके वॉलेट से ₹{v['AMOUNT_RECOVERED']} की राशि वसूल की गई है
 
 यह गतिविधि Wiom System: 9 मूलभूत सिद्धांतों के अंतर्गत अनुमत नहीं है।
 
-संदर्भ विवरण:
-{proof}
-
-सिस्टम रिव्यू वर्तमान में सक्रिय है।
-ऐसी गतिविधियाँ सिस्टम गवर्नेंस नियमों के अनुसार परिणाम ला सकती हैं। कृपया सुनिश्चित करें कि भविष्य में इस प्रकार की स्थिति दोबारा न बने।
+कृपया सुनिश्चित करें कि भविष्य में:
+• ग्राहक से कोई भी अतिरिक्त भुगतान सीधे न लिया जाए
+• सभी भुगतान केवल Wiom सिस्टम के माध्यम से ही प्रोसेस किए जाएँ
 
 यदि आपको लगता है कि यह जानकारी गलत है, तो 48 घंटे के भीतर 7836811111 पर कॉल करें। उपलब्ध रिकॉर्ड के आधार पर पुनः समीक्षा की जाएगी।
 
@@ -423,22 +431,25 @@ https://partnerapp.wiom.in/wiom-agreement
 यह सूचना स्वचालित रूप से सिस्टम द्वारा जारी की गई है।"""
 
     elif language == "en":
-        subject = f"Important: Violation of Wiom {t['fundamental_number']['en']} Identified — Immediate Review Required"
-        proof = _build_fp2_proof(selected_vars, values, "en")
-        body = f"""WIOM System Notice.
+        subject = "Important: Violation of Wiom Fundamental Principle 2 — Amount Recovered by System"
+        body = f"""Wiom System Message
 
-System records indicate a violation related to Wiom {t['fundamental_number']['en']} — {t['fundamental_title']['en']}.
+System records indicate a violation related to Wiom Fundamental Principle 2 — All Payments Must Be Processed Through the Wiom System.
 
 Violation Details:
-{t['case_reason']['en']}
+You or your employee collected ₹{v['AMOUNT_COLLECTED']} from customer {v['MASKED_NUMBER']}.
+
+As per Wiom system rules, all payments must be processed only through the Wiom system. Direct collection of money from customers is not permitted.
+
+As a result:
+• ₹{v['AMOUNT_REFUNDED']} has been refunded to the customer by the system
+• ₹{v['AMOUNT_RECOVERED']} has been recovered from your wallet
 
 This activity is not permitted under Wiom System: 9 Fundamental Principles.
 
-Reference Details:
-{proof}
-
-A system review is currently active.
-Such activities may lead to consequences under system governance rules. Please ensure this situation does not occur again.
+Please ensure that in the future:
+• No additional payments are collected directly from customers
+• All payments are processed only through the Wiom system
 
 If you believe this information is incorrect, call 7836811111 within 48 hours. Available records will be reviewed.
 
@@ -448,23 +459,25 @@ https://partnerapp.wiom.in/wiom-agreement
 This communication has been automatically generated by the system."""
 
     else:  # both
-        subject = f"महत्वपूर्ण: Wiom {t['fundamental_number']['hi']} का उल्लंघन दर्ज / Important: Violation of Wiom {t['fundamental_number']['en']} Identified"
-        proof_hi = _build_fp2_proof(selected_vars, values, "hi")
-        proof_en = _build_fp2_proof(selected_vars, values, "en")
-        body = f"""WIOM सिस्टम नोटिस।
+        subject = "महत्वपूर्ण: Wiom मूलभूत सिद्धांत 2 का उल्लंघन — सिस्टम द्वारा राशि वसूली / Important: Violation of Wiom Fundamental Principle 2 — Amount Recovered by System"
+        body = f"""Wiom सिस्टम संदेश
 
-सिस्टम रिकॉर्ड के अनुसार Wiom {t['fundamental_number']['hi']} — {t['fundamental_title']['hi']} से संबंधित उल्लंघन दर्ज हुआ है।
+सिस्टम रिकॉर्ड के अनुसार Wiom मूलभूत सिद्धांत 2 — सभी Payments Wiom सिस्टम के ज़रिए ही Process करें से संबंधित उल्लंघन दर्ज हुआ है।
 
 उल्लंघन का विवरण:
-{t['case_reason']['hi']}
+आपके या आपके कर्मचारी द्वारा ग्राहक {v['MASKED_NUMBER']} से ₹{v['AMOUNT_COLLECTED']} की राशि ली गई थी।
+
+Wiom सिस्टम नियमों के अनुसार सभी भुगतान केवल Wiom सिस्टम के माध्यम से ही लिए जा सकते हैं। ग्राहक से सीधे भुगतान लेना अनुमत नहीं है।
+
+इस कारण सिस्टम द्वारा:
+• ग्राहक को ₹{v['AMOUNT_REFUNDED']} की राशि वापस कर दी गई है
+• आपके वॉलेट से ₹{v['AMOUNT_RECOVERED']} की राशि वसूल की गई है
 
 यह गतिविधि Wiom System: 9 मूलभूत सिद्धांतों के अंतर्गत अनुमत नहीं है।
 
-संदर्भ विवरण:
-{proof_hi}
-
-सिस्टम रिव्यू वर्तमान में सक्रिय है।
-ऐसी गतिविधियाँ सिस्टम गवर्नेंस नियमों के अनुसार परिणाम ला सकती हैं। कृपया सुनिश्चित करें कि भविष्य में इस प्रकार की स्थिति दोबारा न बने।
+कृपया सुनिश्चित करें कि भविष्य में:
+• ग्राहक से कोई भी अतिरिक्त भुगतान सीधे न लिया जाए
+• सभी भुगतान केवल Wiom सिस्टम के माध्यम से ही प्रोसेस किए जाएँ
 
 यदि आपको लगता है कि यह जानकारी गलत है, तो 48 घंटे के भीतर 7836811111 पर कॉल करें। उपलब्ध रिकॉर्ड के आधार पर पुनः समीक्षा की जाएगी।
 
@@ -475,20 +488,24 @@ https://partnerapp.wiom.in/wiom-agreement
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-WIOM System Notice.
+Wiom System Message
 
-System records indicate a violation related to Wiom {t['fundamental_number']['en']} — {t['fundamental_title']['en']}.
+System records indicate a violation related to Wiom Fundamental Principle 2 — All Payments Must Be Processed Through the Wiom System.
 
 Violation Details:
-{t['case_reason']['en']}
+You or your employee collected ₹{v['AMOUNT_COLLECTED']} from customer {v['MASKED_NUMBER']}.
+
+As per Wiom system rules, all payments must be processed only through the Wiom system. Direct collection of money from customers is not permitted.
+
+As a result:
+• ₹{v['AMOUNT_REFUNDED']} has been refunded to the customer by the system
+• ₹{v['AMOUNT_RECOVERED']} has been recovered from your wallet
 
 This activity is not permitted under Wiom System: 9 Fundamental Principles.
 
-Reference Details:
-{proof_en}
-
-A system review is currently active.
-Such activities may lead to consequences under system governance rules. Please ensure this situation does not occur again.
+Please ensure that in the future:
+• No additional payments are collected directly from customers
+• All payments are processed only through the Wiom system
 
 If you believe this information is incorrect, call 7836811111 within 48 hours. Available records will be reviewed.
 

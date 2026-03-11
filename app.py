@@ -616,13 +616,16 @@ def breach2_send_email():
             continue
 
         vars_filled = dict(values)
-        if "CUSTOMER_MOBILE" in selected_vars and not vars_filled.get("CUSTOMER_MOBILE"):
+        # Auto-fill FP2 variables from case data
+        if not vars_filled.get("MASKED_NUMBER"):
             mobile = case.get("customer_mobile", "")
-            vars_filled["CUSTOMER_MOBILE"] = mobile[:4] if len(mobile) >= 4 else mobile
-        if "EXTRA_AMOUNT" in selected_vars and not vars_filled.get("EXTRA_AMOUNT"):
-            vars_filled["EXTRA_AMOUNT"] = str(int(case.get("extra_amount") or 0))
-        if "TICKET_ID" in selected_vars and not vars_filled.get("TICKET_ID"):
-            vars_filled["TICKET_ID"] = case.get("kapture_ticket_id") or tid
+            vars_filled["MASKED_NUMBER"] = (mobile[:4] + "XXXXXX") if len(mobile) >= 4 else mobile
+        if not vars_filled.get("AMOUNT_COLLECTED"):
+            vars_filled["AMOUNT_COLLECTED"] = str(int(float(case.get("extra_amount") or 0)))
+        if not vars_filled.get("AMOUNT_REFUNDED"):
+            vars_filled["AMOUNT_REFUNDED"] = str(int(float(case.get("extra_amount") or 0)))
+        if not vars_filled.get("AMOUNT_RECOVERED"):
+            vars_filled["AMOUNT_RECOVERED"] = str(int(float(case.get("extra_amount") or 0)))
 
         rendered = render_fp2_email(language, selected_vars, vars_filled)
         partner_name = (case.get("current_partner_name") or "").strip()
