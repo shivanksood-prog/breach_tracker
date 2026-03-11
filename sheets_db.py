@@ -378,8 +378,8 @@ def get_visibility_matrix() -> dict:
                 round(amt_claimed, 2), round(amt_refunded, 2)]
 
     def _daily_column(day):
-        """For daily columns, filter cases detected on that day, then count states."""
-        day_cases = [c for c in cases if _date_of(c.get("detected_at")) == day]
+        """For daily columns, filter cases by ticket_added_time_ist (actual case date)."""
+        day_cases = [c for c in cases if _date_of(c.get("ticket_added_time_ist")) == day]
         return _compute_column(day_cases)
 
     # Period columns: filter cases by ticket_added_time_ist, then count states
