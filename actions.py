@@ -82,7 +82,7 @@ def generate_penalty_xlsx(cases: list) -> bytes:
         top=Side(style="thin"), bottom=Side(style="thin"),
     )
 
-    headers = ["Partner Id", "Amount", "Remark"]
+    headers = ["AccountId", "Amount", "Remark"]
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
         cell.font = hdr_font
@@ -93,7 +93,12 @@ def generate_penalty_xlsx(cases: list) -> bytes:
     # Data rows
     row_idx = 2
     for pid, data in partners.items():
-        ws.cell(row=row_idx, column=1, value=pid).border = thin_border
+        # AccountId as integer
+        try:
+            pid_int = int(pid)
+        except (ValueError, TypeError):
+            pid_int = pid
+        ws.cell(row=row_idx, column=1, value=pid_int).border = thin_border
         amt_cell = ws.cell(row=row_idx, column=2, value=-abs(data["amount"]))
         amt_cell.number_format = '#,##0'
         amt_cell.border = thin_border
@@ -101,7 +106,7 @@ def generate_penalty_xlsx(cases: list) -> bytes:
         row_idx += 1
 
     # Auto-width columns
-    ws.column_dimensions["A"].width = 20
+    ws.column_dimensions["A"].width = 18
     ws.column_dimensions["B"].width = 15
     ws.column_dimensions["C"].width = 45
 
