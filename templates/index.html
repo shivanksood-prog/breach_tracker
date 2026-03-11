@@ -652,22 +652,9 @@
       <span id="fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
     </div>
 
-    <!-- Install Cases -->
-    <div class="section-div"><h3>🔧 Install Cases</h3><span class="scnt i" id="ic">0</span></div>
+    <!-- Other Cases (all cases from 11 March onwards) -->
+    <div class="section-div"><h3>📋 Cases</h3><span class="scnt o" id="oc">0</span></div>
     <div class="table-wrap" style="margin-bottom:4px">
-      <table>
-        <thead><tr>
-          <th class="check-col"><input type="checkbox" id="chk-install-all" onchange="selectAll('install',this.checked)"/></th>
-          <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
-          <th>Amount</th><th>Emp Role</th><th>Technician</th><th>State</th><th>Actions</th>
-        </tr></thead>
-        <tbody id="installBody"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
-      </table>
-    </div>
-
-    <!-- Other Cases -->
-    <div class="section-div" style="margin-top:24px"><h3>📋 Other Cases</h3><span class="scnt o" id="oc">0</span></div>
-    <div class="table-wrap">
       <table>
         <thead><tr>
           <th class="check-col"><input type="checkbox" id="chk-other-all" onchange="selectAll('other',this.checked)"/></th>
@@ -675,6 +662,19 @@
           <th>Amount</th><th>State</th><th>Actions</th>
         </tr></thead>
         <tbody id="otherBody"><tr><td colspan="9" class="loading-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- Install Cases (historical cases before 11 March) -->
+    <div class="section-div" style="margin-top:24px"><h3>🔧 Install Cases (Pre 11-Mar)</h3><span class="scnt i" id="ic">0</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="check-col"><input type="checkbox" id="chk-install-all" onchange="selectAll('install',this.checked)"/></th>
+          <th>Date</th><th>Ticket ID</th><th>Customer Mobile</th><th>Partner</th><th>Zone</th>
+          <th>Amount</th><th>Emp Role</th><th>Technician</th><th>State</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="installBody"><tr><td colspan="11" class="loading-state">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1566,13 +1566,14 @@ function fmtDate(d) {
 }
 
 function renderCases(data) {
-  const install = data.filter(c => String(c.new_install_flag)==='1');
-  const other   = data.filter(c => String(c.new_install_flag)!=='1');
+  const cutoff = '2026-03-11';
+  const other   = data.filter(c => (c.ticket_added_time_ist||'').slice(0,10) >= cutoff);
+  const install = data.filter(c => (c.ticket_added_time_ist||'').slice(0,10) < cutoff);
   document.getElementById('fCount').textContent  = data.length+' case(s)';
-  document.getElementById('ic').textContent = install.length;
   document.getElementById('oc').textContent = other.length;
-  document.getElementById('installBody').innerHTML = renderSection(install, 'install', 11);
+  document.getElementById('ic').textContent = install.length;
   document.getElementById('otherBody').innerHTML   = renderSection(other,   'other',   9);
+  document.getElementById('installBody').innerHTML = renderSection(install, 'install', 11);
 }
 
 function renderSection(arr, section, colspan) {
