@@ -982,13 +982,12 @@ async function handlePenaltyUpload(input) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BREACH 1 (read-only from Google Sheet)
+// BREACH 1 (from Railway API)
 // ═══════════════════════════════════════════════════════════════════════════════
 let b1Data = [];
 async function loadB1() {
-  b1Data = await fetchSheet(B1_SHEET_ID, 'Sheet1');
-  // Filter to only confirmed disintermediation
-  b1Data = b1Data.filter(c => String(c.Disintermediation || '').trim().toLowerCase() === 'yes');
+  const data = await api('GET', '/api/breach1/cases');
+  b1Data = Array.isArray(data) ? data : [];
   renderB1();
 }
 function renderB1() {
@@ -996,37 +995,37 @@ function renderB1() {
   let filtered = b1Data;
   if (search) {
     filtered = filtered.filter(c =>
-      (c.PARTNER_NAME||'').toLowerCase().includes(search) ||
-      (c.MOBILE||'').toLowerCase().includes(search) ||
-      (c.ZONE||'').toLowerCase().includes(search)
+      (c.partner_name||'').toLowerCase().includes(search) ||
+      (c.customer_mobile||'').toLowerCase().includes(search) ||
+      (c.zone||'').toLowerCase().includes(search)
     );
   }
   document.getElementById('b1k-total').textContent = filtered.length;
-  document.getElementById('b1k-partners').textContent = new Set(filtered.map(c=>c.PARTNER_NAME)).size;
+  document.getElementById('b1k-partners').textContent = new Set(filtered.map(c=>c.partner_name)).size;
   document.getElementById('b1Count').textContent = filtered.length + ' case(s)';
 
   const body = document.getElementById('b1Body');
   if (!filtered.length) { body.innerHTML = '<tr><td colspan="9"><div class="empty-state">No cases</div></td></tr>'; return; }
   body.innerHTML = filtered.map(c => `<tr>
-    <td style="font-size:12px">${c.PARTNER_NAME||'--'}</td>
-    <td>${c.MOBILE||'--'}</td>
-    <td style="font-size:12px">${c.EXPIRY_DT||'--'}</td>
-    <td style="font-size:12px">${c.ZONE||'--'}</td>
-    <td style="font-size:12px">${c.CITY||'--'}</td>
-    <td>${c.TENURE||'--'}</td>
-    <td><strong>${c['Risk score on wallet activity (Dec+Jan) (Scale 0-3)']||'--'}</strong></td>
-    <td><span class="state-badge state-${(c.Status||'').includes('TERM')?'TERMINATION':(c.Status||'').includes('ACTIVE')?'ACTIVE':'TEMPORARY'}"><span class="dot"></span>${c.Status||'--'}</span></td>
-    <td>${c.Disintermediation||'--'}</td>
+    <td style="font-size:12px">${c.partner_name||'--'}</td>
+    <td>${c.customer_mobile||'--'}</td>
+    <td style="font-size:12px">${c.expiry_dt||'--'}</td>
+    <td style="font-size:12px">${c.zone||'--'}</td>
+    <td style="font-size:12px">${c.city||'--'}</td>
+    <td>${c.tenure||'--'}</td>
+    <td><strong>${c.risk_score||'--'}</strong></td>
+    <td><span class="state-badge state-${(c.partner_status||'').includes('TERM')?'TERMINATION':(c.partner_status||'').includes('ACTIVE')?'ACTIVE':'TEMPORARY'}"><span class="dot"></span>${c.partner_status||'--'}</span></td>
+    <td>${c.disintermediation||'--'}</td>
   </tr>`).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// BREACH 4 (read-only from Google Sheet)
+// BREACH 4 (from Railway API)
 // ═══════════════════════════════════════════════════════════════════════════════
 let b4Data = [];
 async function loadB4() {
-  b4Data = await fetchSheet(B4_SHEET_ID, B4_TAB);
-  b4Data = b4Data.filter(c => c['Partner Id'] || c['Partner Name'] || c['Device Id']);
+  const data = await api('GET', '/api/breach4/cases');
+  b4Data = Array.isArray(data) ? data : [];
   renderB4();
 }
 function renderB4() {
@@ -1034,25 +1033,25 @@ function renderB4() {
   let filtered = b4Data;
   if (search) {
     filtered = filtered.filter(c =>
-      (c['Partner Name']||'').toLowerCase().includes(search) ||
-      (c['Device Id']||'').toLowerCase().includes(search) ||
-      (c['Partner Id']||'').toLowerCase().includes(search)
+      (c.partner_name||'').toLowerCase().includes(search) ||
+      (c.device_id||'').toLowerCase().includes(search) ||
+      (c.partner_id||'').toLowerCase().includes(search)
     );
   }
   document.getElementById('b4k-total').textContent = filtered.length;
-  document.getElementById('b4k-partners').textContent = new Set(filtered.map(c=>c['Partner Name'])).size;
+  document.getElementById('b4k-partners').textContent = new Set(filtered.map(c=>c.partner_name)).size;
   document.getElementById('b4Count').textContent = filtered.length + ' case(s)';
 
   const body = document.getElementById('b4Body');
   if (!filtered.length) { body.innerHTML = '<tr><td colspan="7"><div class="empty-state">No cases</div></td></tr>'; return; }
   body.innerHTML = filtered.map(c => `<tr>
-    <td style="font-size:12px">${c['Partner Name']||'--'}</td>
-    <td><code style="font-size:11px">${c['Device Id']||'--'}</code></td>
-    <td style="font-size:12px">${c['Customer Details']||'--'}</td>
-    <td style="font-size:12px">${c['Date Reported']||'--'}</td>
-    <td style="font-size:12px">${c['Reporting Channel']||'--'}</td>
-    <td>${c['Penalty Amount']||'--'}</td>
-    <td>${c['Penalty Done']==='Yes'?'<span class="pill pill-yes">Yes</span>':'<span class="pill pill-no">No</span>'}</td>
+    <td style="font-size:12px">${c.partner_name||'--'}</td>
+    <td><code style="font-size:11px">${c.device_id||'--'}</code></td>
+    <td style="font-size:12px">${c.customer_details||'--'}</td>
+    <td style="font-size:12px">${c.date_reported||'--'}</td>
+    <td style="font-size:12px">${c.reporting_channel||'--'}</td>
+    <td>${c.penalty_amount||'--'}</td>
+    <td>${c.penalty_done==='Yes'?'<span class="pill pill-yes">Yes</span>':'<span class="pill pill-no">No</span>'}</td>
   </tr>`).join('');
 }
 
