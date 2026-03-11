@@ -791,6 +791,7 @@ function switchTab(t) {
     document.getElementById('tab-'+n).classList.toggle('active', n===t);
     document.querySelectorAll('.nav-tab')[i].classList.toggle('active', n===t);
   });
+  if (t==='breach1') { loadB1Summary(); loadB1Cases(); loadB1Filters(); }
   if (t==='breach4') { loadB4Summary(); loadB4Cases(); loadB4Filters(); }
   if (t==='breach2') { loadSummary(); loadCases(); }
   if (t==='settings') loadSettings();
@@ -2023,8 +2024,8 @@ function connectSSE() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   connectSSE();
-  // Load Breach 1 summary (default tab)
-  loadB1Summary();
+  // Load Breach 1 (default tab)
+  loadB1Summary(); loadB1Cases(); loadB1Filters();
   // Load Breach 4 summary
   loadB4Summary();
   // Load Breach 2 in background
