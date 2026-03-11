@@ -401,7 +401,7 @@ def get_visibility_matrix() -> dict:
     ]
 
     return {
-        "columns": ["Today", "Today-1", "Today-2", "Post Mar 11 (All)", "Pre Mar 11 (PayG Install)"],
+        "columns": [today, day_1, day_2, "Post Mar 11 (All)", "Pre Mar 11 (PayG Install)"],
         "rows": [
             {"label": labels[i], "values": [col_today[i], col_day1[i], col_day2[i], col_post[i], col_pre[i]]}
             for i in range(len(labels))

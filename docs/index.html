@@ -280,10 +280,7 @@
   <!-- Visibility Dashboard (top) -->
   <div class="table-wrap" style="margin-bottom:16px">
     <table style="font-size:13px">
-      <thead id="visHead"><tr>
-        <th style="text-align:left">Metric</th><th>Today</th><th>Today-1</th><th>Today-2</th>
-        <th>Post Mar 11 (All)</th><th>Pre Mar 11 (PayG Install)</th>
-      </tr></thead>
+      <thead id="visHead"></thead>
       <tbody id="visBody"><tr><td colspan="6" class="loading-state">Loading...</td></tr></tbody>
     </table>
   </div>
@@ -963,10 +960,12 @@ async function loadCommsBadge() {
 
 // ── Visibility Dashboard ─────────────────────────────────────────────────────
 async function loadVisibility() {
+  const head = document.getElementById('visHead');
   const body = document.getElementById('visBody');
   body.innerHTML = '<tr><td colspan="6" class="loading-state">Loading...</td></tr>';
   const data = await apiGet('/api/cases/visibility');
   if (!data || !data.rows) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>'; return; }
+  head.innerHTML = `<tr><th style="text-align:left">Metric</th>${data.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
   body.innerHTML = data.rows.map(r => {
     const isMoney = r.label.startsWith('Total');
     return `<tr><td style="font-weight:600;white-space:nowrap">${r.label}</td>${r.values.map(v =>
