@@ -1538,8 +1538,9 @@ async function loadVisibility() {
   head.innerHTML = `<tr><th style="text-align:left">Metric</th>${data.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
   body.innerHTML = data.rows.map(r => {
     const isMoney = r.label.startsWith('Total');
+    const isTAT = r.label.includes('TAT');
     return `<tr><td style="font-weight:600;white-space:nowrap">${r.label}</td>${r.values.map(v =>
-      `<td style="text-align:right;font-variant-numeric:tabular-nums">${isMoney ? '₹'+Number(v).toLocaleString('en-IN') : v}</td>`
+      `<td style="text-align:right;font-variant-numeric:tabular-nums">${isMoney ? '₹'+Number(v).toLocaleString('en-IN') : isTAT && typeof v==='number' ? v+'h' : v}</td>`
     ).join('')}</tr>`;
   }).join('');
 }

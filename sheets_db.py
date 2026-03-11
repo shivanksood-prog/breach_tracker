@@ -364,6 +364,31 @@ def get_visibility_matrix() -> dict:
     def _date_of(ts):
         return (ts or "")[:10]
 
+    def _parse_ts(ts):
+        """Parse a timestamp string to datetime, or None."""
+        if not ts:
+            return None
+        try:
+            return datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
+        except (ValueError, TypeError):
+            return None
+
+    def _median_refund_tat(case_list):
+        """Compute median refund TAT in hours for refunded cases."""
+        tats = []
+        for c in case_list:
+            t1 = _parse_ts(c.get("ticket_added_time_ist"))
+            t2 = _parse_ts(c.get("customer_refunded_at"))
+            if t1 and t2:
+                tats.append((t2 - t1).total_seconds() / 3600)
+        if not tats:
+            return "—"
+        tats.sort()
+        n = len(tats)
+        mid = n // 2
+        median = tats[mid] if n % 2 else (tats[mid - 1] + tats[mid]) / 2
+        return round(median, 1)
+
     def _compute_column(case_list):
         """Compute all metric rows for a list of cases."""
         claimed = len(case_list)
@@ -374,8 +399,9 @@ def get_visibility_matrix() -> dict:
         repeat = sum(1 for c in case_list if c.get("ticket_id") in flagged_tids)
         amt_claimed = sum(c.get("extra_amount") or 0 for c in case_list)
         amt_refunded = sum(c.get("extra_amount") or 0 for c in case_list if c.get("customer_refunded_at"))
+        tat = _median_refund_tat(case_list)
         return [claimed, no_amt, refunded, communicated, penalty, repeat,
-                round(amt_claimed, 2), round(amt_refunded, 2)]
+                round(amt_claimed, 2), round(amt_refunded, 2), tat]
 
     def _daily_column(day):
         """For daily columns, filter cases by ticket_added_time_ist (actual case date)."""
@@ -398,6 +424,7 @@ def get_visibility_matrix() -> dict:
         "#Customer Refunded", "#Customer Communicated",
         "#Partner Penalty Applied", "#Repeat Customer Flagged",
         "Total Amount Claimed", "Total Amount Refunded",
+        "Median Refund TAT (hrs)",
     ]
 
     return {
