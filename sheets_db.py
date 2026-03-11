@@ -391,8 +391,9 @@ def get_visibility_matrix() -> dict:
                 len(repeat), round(amt_claimed, 2), round(amt_refunded, 2)]
 
     # Period columns: filter cases by ticket_added_time_ist, then count states
+    # Exclude cases with no ticket_added_time_ist from pre_mar to avoid false matches
     post_mar = [c for c in cases if _date_of(c.get("ticket_added_time_ist")) >= cutoff]
-    pre_mar = [c for c in cases if _date_of(c.get("ticket_added_time_ist")) < cutoff]
+    pre_mar = [c for c in cases if c.get("ticket_added_time_ist") and _date_of(c.get("ticket_added_time_ist")) < cutoff]
 
     col_today = _daily_column(today)
     col_day1 = _daily_column(day_1)

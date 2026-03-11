@@ -560,7 +560,10 @@ def confirm_comms(ticket_id):
 
 @app.route("/api/cases/visibility")
 def visibility_matrix():
-    return jsonify(sheets_db.get_visibility_matrix())
+    try:
+        return jsonify(sheets_db.get_visibility_matrix())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ── Fraud Tracker ─────────────────────────────────────────────────────────────
