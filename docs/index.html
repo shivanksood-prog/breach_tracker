@@ -870,7 +870,6 @@ let commsSelected = new Set();
 function switchB2Sub(sub) {
   document.getElementById('b2sub-cases').style.display = sub === 'cases' ? '' : 'none';
   document.getElementById('b2sub-comms').style.display = sub === 'comms' ? '' : 'none';
-  document.getElementById('b2sub-visibility').style.display = sub === 'visibility' ? '' : 'none';
   document.getElementById('b2sub-cases-tab').classList.toggle('active', sub === 'cases');
   document.getElementById('b2sub-comms-tab').classList.toggle('active', sub === 'comms');
   if (sub === 'comms') loadCommsTab();
