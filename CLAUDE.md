@@ -76,7 +76,21 @@ detected → customer_refunded → customer_comms → partner_penalty
 - `detected_at` = when system synced the case (NOT the real case date)
 - Penalty xlsx columns: `AccountId` (integer), `Amount` (negative), `Remark`
 - Penalty result xlsx has additional columns: `Process Status`, `Reason`, `AddedTime`, `transactionId`
-- Both frontends must be kept in sync — changes to one should be mirrored to the other
+
+## Critical: Two Frontends Must Stay in Sync
+
+`templates/index.html` (Railway) and `docs/index.html` (GitHub Pages) are independent copies — NOT generated from a shared source. **Every change to one MUST be mirrored to the other.**
+
+### Sync checklist when editing frontend code:
+1. **JS functions**: If you add/modify/remove a function in one file, do the same in the other
+2. **HTML structure**: If you add/remove a div/element (e.g. a sub-tab), update ALL JS references in both files
+3. **DOM IDs**: If you remove an element, grep BOTH files for its ID — dead references cause silent JS errors that break entire functions
+4. **API patterns differ**: templates uses `api()` (returns `{}` on error), docs uses `apiGet()`/`apiPost()` (returns `null` on error) — handle both
+5. **After editing, verify**: grep both files for any ID/function referenced in your change
+
+### Past bugs from sync failures:
+- `switchB2Sub()` in docs referenced `#b2sub-visibility` after it was removed → broke entire Comms tab
+- `api()` returns `{}` on error but code assumed array → needed `Array.isArray()` safety check in templates
 
 ## Commands
 
