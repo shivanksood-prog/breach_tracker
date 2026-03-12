@@ -1193,8 +1193,6 @@ async function dlBulk(type) {
     // Penalty returns xlsx from API
     const base = getApiUrl();
     if (!base) return;
-    let filtered = cases.filter(c => tids.length ? tids.includes(String(c.ticket_id)) : c.state === 'customer_comms');
-    if (!filtered.length) { toast('No cases to export', 'error'); return; }
     try {
       const resp = await fetch(base + '/api/csv/penalty', {method:'POST', headers:authHeaders(), body:JSON.stringify({ticket_ids:tids})});
       if (!resp.ok) { toast('Failed','error'); return; }

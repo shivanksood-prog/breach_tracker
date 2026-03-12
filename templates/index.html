@@ -1837,7 +1837,7 @@ function updateSelBar() {
 async function dlBulk(type) {
   const tids = [...selectedCases];
   // For refund, allow downloading all detected when nothing selected
-  if (!tids.length && type !== 'refund') { toast('No cases selected', 'error'); return; }
+  if (!tids.length && type !== 'refund' && type !== 'penalty') { toast('No cases selected', 'error'); return; }
   if (type === 'penalty') {
     // Penalty returns xlsx binary
     const resp = await fetch('/api/csv/penalty', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ticket_ids:tids})});
