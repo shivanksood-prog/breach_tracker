@@ -539,6 +539,7 @@ def upload_refund_status():
                 slack_lines.append(
                     f"• Kapture {kapture_id} | {partner_name} | {mobile} | {amt_str} | TAT {tat_str}"
                 )
+            slack_lines.append("\n<https://shivanksood-prog.github.io/breach_tracker/|Open Customer Comms Tab>")
             webhook_url = config.get("slack_webhook_url", "")
             if webhook_url and len(slack_lines) > 1:
                 actions.send_to_slack(webhook_url, "\n".join(slack_lines))
