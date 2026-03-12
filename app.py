@@ -269,7 +269,7 @@ try:
         if not pending:
             return
         total = sum(c.get("extra_amount") or 0 for c in pending)
-        lines = [f":rotating_light: *BREACH 2 — {len(pending)} Pending Case(s)* (30-min digest)\n"]
+        lines = [f"<!channel>\n:rotating_light: *BREACH 2 — {len(pending)} Pending Case(s)* (30-min digest)\n"]
         for c in pending:
             amt     = f"₹{int(c['extra_amount'])}" if c.get("extra_amount") else "TBD"
             install = "🔧 Install" if str(c.get("new_install_flag")) == "1" else "📋 Other"
@@ -296,7 +296,7 @@ try:
             new_cases = [c for c in cases if c.get("ticket_id") not in _notified_b2_tids]
             if not new_cases:
                 return
-            lines = [f":new: *{len(new_cases)} New Breach 2 Case(s) Detected*\n"]
+            lines = [f"<!channel>\n:new: *{len(new_cases)} New Breach 2 Case(s) Detected*\n"]
             for c in new_cases:
                 amt = f"₹{int(c['extra_amount'])}" if c.get("extra_amount") else "TBD"
                 lines.append(
@@ -547,7 +547,7 @@ def upload_refund_status():
     # ── Slack notification for matched refund cases ──
     if matched:
         try:
-            slack_lines = ["*Refund Processed — Customer Comms Pending*\n"]
+            slack_lines = ["<!channel>\n*Refund Processed — Customer Comms Pending*\n"]
             for m in matched:
                 tid = m.get("ticket_id", "")
                 case_data = sheets_db.get_case(tid)
