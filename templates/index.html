@@ -1449,6 +1449,7 @@ function switchB2Sub(sub) {
 
 async function loadCommsTab() {
   commsData = await api('GET', '/api/customer-comms');
+  if (!Array.isArray(commsData)) commsData = [];
   renderCommsTab();
 }
 
@@ -2079,7 +2080,7 @@ async function init() {
   loadSummary();
   loadZones();
   loadCommsBadge();
-  setInterval(loadSummary, 30000);
+  setInterval(() => { loadSummary(); loadCommsBadge(); }, 30000);
 }
 init();
 </script>

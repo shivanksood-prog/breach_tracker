@@ -285,12 +285,36 @@ try:
         except Exception as e:
             app.logger.error(f"Slack digest error: {e}")
 
+    _notified_b2_tids = set()
+
+    def _slack_new_b2_alert():
+        try:
+            webhook = config.load().get("slack_webhook_url", "")
+            if not webhook:
+                return
+            cases = sheets_db.get_all_cases(state="detected")
+            new_cases = [c for c in cases if c.get("ticket_id") not in _notified_b2_tids]
+            if not new_cases:
+                return
+            lines = [f":new: *{len(new_cases)} New Breach 2 Case(s) Detected*\n"]
+            for c in new_cases:
+                amt = f"₹{int(c['extra_amount'])}" if c.get("extra_amount") else "TBD"
+                lines.append(
+                    f"• `{c.get('kapture_ticket_id') or c['ticket_id']}` | "
+                    f"{c.get('current_partner_name', '—')} | {c.get('zone', '—')} | *{amt}*"
+                )
+                _notified_b2_tids.add(c["ticket_id"])
+            actions.send_to_slack(webhook, "\n".join(lines))
+        except Exception as e:
+            app.logger.error(f"Slack new B2 alert error: {e}")
+
     from datetime import datetime, timedelta
     scheduler = BackgroundScheduler(daemon=True)
     # Defer first _auto_sync by 2 min so it doesn't overlap with the startup job
     scheduler.add_job(_auto_sync, "interval", minutes=2, id="auto_sync",
                       next_run_time=datetime.now() + timedelta(minutes=2))
     scheduler.add_job(_slack_pending_digest, "interval", minutes=30, id="slack_digest")
+    scheduler.add_job(_slack_new_b2_alert, "interval", minutes=15, id="b2_new_alert")
     # Run B1/B4 sync immediately on startup so SQLite is populated after deploy
     scheduler.add_job(_sync_b1b4, id="b1b4_startup")
     scheduler.start()
@@ -473,6 +497,17 @@ def dl_partner_comms():
                     headers={"Content-Disposition": "attachment; filename=partner_comms.csv"})
 
 
+def _calc_tat_minutes(t1_str, t2_str):
+    """Calculate TAT in minutes between two timestamp strings."""
+    try:
+        from datetime import datetime as _dt
+        t1 = _dt.strptime(t1_str.replace("T", " ")[:19], "%Y-%m-%d %H:%M:%S")
+        t2 = _dt.strptime(t2_str.replace("T", " ")[:19], "%Y-%m-%d %H:%M:%S")
+        return round((t2 - t1).total_seconds() / 60, 1)
+    except Exception:
+        return None
+
+
 # ── Refund Upload ────────────────────────────────────────────────────────────
 
 @app.route("/api/upload/refund-status", methods=["POST"])
@@ -509,6 +544,32 @@ def upload_refund_status():
                     matched.append(result2)
                     continue
             unmatched.append({"mobile": phone, "payout_link_id": payout_id})
+    # ── Slack notification for matched refund cases ──
+    if matched:
+        try:
+            slack_lines = ["*Refund Processed — Customer Comms Pending*\n"]
+            for m in matched:
+                tid = m.get("ticket_id", "")
+                case_data = sheets_db.get_case(tid)
+                if not case_data:
+                    continue
+                kapture_id = case_data.get("kapture_ticket_id") or "N/A"
+                partner_name = case_data.get("current_partner_name") or "N/A"
+                mobile = case_data.get("customer_mobile") or "N/A"
+                extra_amt = case_data.get("extra_amount")
+                amt_str = f"₹{extra_amt}" if extra_amt is not None else "N/A"
+                t1 = case_data.get("ticket_added_time_ist") or ""
+                t2 = case_data.get("customer_refunded_at") or ""
+                tat = _calc_tat_minutes(t1, t2)
+                tat_str = f"{tat} min" if tat is not None else "N/A"
+                slack_lines.append(
+                    f"• Kapture {kapture_id} | {partner_name} | {mobile} | {amt_str} | TAT {tat_str}"
+                )
+            webhook_url = config.get("slack_webhook_url", "")
+            if webhook_url and len(slack_lines) > 1:
+                actions.send_to_slack(webhook_url, "\n".join(slack_lines))
+        except Exception:
+            pass  # Don't break upload response on Slack failure
     return jsonify({
         "ok": True,
         "matched_count": len(matched),
