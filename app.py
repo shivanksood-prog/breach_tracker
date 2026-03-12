@@ -260,31 +260,6 @@ try:
                 app.logger.error(f"Auto-sync B2 error: {e}")
         _sync_b1b4()
 
-    def _slack_pending_digest():
-        cfg     = config.load()
-        webhook = cfg.get("slack_webhook_url", "")
-        if not webhook:
-            return
-        pending = sheets_db.get_all_cases(state="detected")
-        if not pending:
-            return
-        total = sum(c.get("extra_amount") or 0 for c in pending)
-        lines = [f"<!channel>\n:rotating_light: *BREACH 2 — {len(pending)} Pending Case(s)* (30-min digest)\n"]
-        for c in pending:
-            amt     = f"₹{int(c['extra_amount'])}" if c.get("extra_amount") else "TBD"
-            install = "🔧 Install" if str(c.get("new_install_flag")) == "1" else "📋 Other"
-            lines.append(
-                f"• `{c['ticket_id']}` | {c.get('current_partner_name','—')} | "
-                f"{c.get('zone','—')} | *{amt}* | {install}"
-            )
-        if total:
-            lines.append(f"\n*Total pending: ₹{int(total)}*")
-        csv_str = actions.generate_refund_csv(pending)
-        try:
-            actions.send_to_slack(webhook, "\n".join(lines), csv_str)
-        except Exception as e:
-            app.logger.error(f"Slack digest error: {e}")
-
     _notified_b2_tids = set()
 
     def _slack_new_b2_alert():
@@ -313,7 +288,6 @@ try:
     # Defer first _auto_sync by 2 min so it doesn't overlap with the startup job
     scheduler.add_job(_auto_sync, "interval", minutes=2, id="auto_sync",
                       next_run_time=datetime.now() + timedelta(minutes=2))
-    scheduler.add_job(_slack_pending_digest, "interval", minutes=30, id="slack_digest")
     scheduler.add_job(_slack_new_b2_alert, "interval", minutes=15, id="b2_new_alert")
     # Run B1/B4 sync immediately on startup so SQLite is populated after deploy
     scheduler.add_job(_sync_b1b4, id="b1b4_startup")
