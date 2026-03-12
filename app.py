@@ -260,25 +260,35 @@ try:
                 app.logger.error(f"Auto-sync B2 error: {e}")
         _sync_b1b4()
 
-    _notified_b2_tids = set()
-
     def _slack_new_b2_alert():
         try:
+            from datetime import datetime, timedelta
             webhook = config.load().get("slack_webhook_url", "")
             if not webhook:
                 return
             cases = sheets_db.get_all_cases(state="detected")
-            new_cases = [c for c in cases if c.get("ticket_id") not in _notified_b2_tids]
-            if not new_cases:
+            # Only cases from today or last 2 days, with amount
+            cutoff = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
+            recent = []
+            for c in cases:
+                if not c.get("extra_amount"):
+                    continue
+                ts = c.get("ticket_added_time_ist") or ""
+                date_part = ts.replace("T", " ")[:10]
+                if date_part >= cutoff:
+                    recent.append(c)
+            if not recent:
                 return
-            lines = [f"<!channel>\n:new: *{len(new_cases)} New Breach 2 Case(s) Detected*\n"]
-            for c in new_cases:
-                amt = f"₹{int(c['extra_amount'])}" if c.get("extra_amount") else "TBD"
+            lines = [f"<!channel>\n:rotating_light: *{len(recent)} Breach 2 Case(s) — Pending Action*\n"]
+            for c in recent:
+                amt = f"\u20b9{int(c['extra_amount'])}"
+                ts_raw = c.get("ticket_added_time_ist") or ""
+                created = ts_raw.replace("T", " ")[:16] if ts_raw else "—"
                 lines.append(
-                    f"• `{c.get('kapture_ticket_id') or c['ticket_id']}` | "
-                    f"{c.get('current_partner_name', '—')} | {c.get('zone', '—')} | *{amt}*"
+                    f"\u2022 `{c.get('kapture_ticket_id') or c['ticket_id']}` | "
+                    f"{c.get('current_partner_name', '\u2014')} | {c.get('zone', '\u2014')} | "
+                    f"*{amt}* | Created: {created}"
                 )
-                _notified_b2_tids.add(c["ticket_id"])
             actions.send_to_slack(webhook, "\n".join(lines))
         except Exception as e:
             app.logger.error(f"Slack new B2 alert error: {e}")
