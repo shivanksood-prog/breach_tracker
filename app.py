@@ -289,6 +289,7 @@ try:
                     f"{c.get('current_partner_name', '\u2014')} | {c.get('zone', '\u2014')} | "
                     f"*{amt}* | Created: {created}"
                 )
+            lines.append("\n<https://shivanksood-prog.github.io/breach_tracker/|Open Dashboard>")
             actions.send_to_slack(webhook, "\n".join(lines))
         except Exception as e:
             app.logger.error(f"Slack new B2 alert error: {e}")
