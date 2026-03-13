@@ -875,10 +875,10 @@ async function loadB1Filters() {
   ]);
   const pSel = document.getElementById('b1fPartner');
   pSel.innerHTML = '<option value="all">All Partners</option>';
-  partners.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p; pSel.appendChild(o); });
+  if (Array.isArray(partners)) partners.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p; pSel.appendChild(o); });
   const zSel = document.getElementById('b1fZone');
   zSel.innerHTML = '<option value="all">All Zones</option>';
-  zones.forEach(z => { const o = document.createElement('option'); o.value=z; o.textContent=z; zSel.appendChild(o); });
+  if (Array.isArray(zones)) zones.forEach(z => { const o = document.createElement('option'); o.value=z; o.textContent=z; zSel.appendChild(o); });
 }
 
 async function loadB1Cases() {
@@ -1087,7 +1087,7 @@ async function showEmailLog() {
   document.getElementById('emailLogSection').style.display = '';
   const logs = await api('GET', '/api/breach1/email-log');
   const el = document.getElementById('emailLogBody');
-  if (!logs.length) { el.innerHTML = '<div class="empty-state">No emails sent yet</div>'; return; }
+  if (!Array.isArray(logs) || !logs.length) { el.innerHTML = '<div class="empty-state">No emails sent yet</div>'; return; }
   el.innerHTML = logs.map(l => {
     const icon = l.is_test ? 'test' : l.status==='sent' ? 'ok' : 'fail';
     const emoji = l.is_test ? '🧪' : l.status==='sent' ? '✓' : '✗';
@@ -1343,7 +1343,7 @@ async function showB4EmailLog() {
   document.getElementById('b4EmailLogSection').style.display = '';
   const logs = await api('GET', '/api/breach4/email-log');
   const el = document.getElementById('b4EmailLogBody');
-  if (!logs.length) { el.innerHTML = '<div class="empty-state">No emails sent yet</div>'; return; }
+  if (!Array.isArray(logs) || !logs.length) { el.innerHTML = '<div class="empty-state">No emails sent yet</div>'; return; }
   el.innerHTML = logs.map(l => {
     const icon = l.is_test ? 'test' : l.status==='sent' ? 'ok' : 'fail';
     const emoji = l.is_test ? '🧪' : l.status==='sent' ? '✓' : '✗';
@@ -1535,7 +1535,7 @@ async function loadVisibility() {
   const body = document.getElementById('visBody');
   body.innerHTML = '<tr><td colspan="6" class="loading-state">Loading…</td></tr>';
   const data = await api('GET', '/api/cases/visibility');
-  if (!data || !data.rows) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>'; return; }
+  if (!data || !data.rows || !data.columns) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>'; return; }
   head.innerHTML = `<tr><th style="text-align:left">Metric</th>${data.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
   body.innerHTML = data.rows.map(r => {
     const isMoney = r.label.startsWith('Total');
@@ -1582,6 +1582,7 @@ async function loadCases() {
 
 async function loadZones() {
   const zones = await api('GET', '/api/cases/zones');
+  if (!Array.isArray(zones)) return;
   const sel = document.getElementById('fZone');
   zones.forEach(z => { const o = document.createElement('option'); o.value=z; o.textContent=z; sel.appendChild(o); });
 }
