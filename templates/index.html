@@ -948,7 +948,10 @@ async function syncBreach1() {
   try {
     const r = await api('POST', '/api/breach1/sync');
     if (r.error) { toast('Sync failed: '+r.error, 'error'); return; }
-    toast(`Synced: ${r.new_cases} new, ${r.updated} updated (${r.total_fetched} total)`, 'success');
+    // Show per-source breakdown
+    const src = r.by_source || {};
+    const srcParts = Object.entries(src).map(([k,v]) => `${k}: ${v}`).join(', ');
+    toast(`Synced: ${r.new_cases} new, ${r.updated} updated — ${srcParts}`, 'success');
     document.getElementById('b1-sync-status').textContent = 'Last synced '+new Date().toLocaleTimeString();
     await Promise.all([loadB1Summary(), loadB1Cases(), loadB1Filters()]);
   } catch(e) { toast('Sync error: '+e.message, 'error'); }

@@ -11,9 +11,9 @@ SA_FILE = Path(__file__).parent / "service_account.json"
 DISINTERMEDIATION_SHEET_ID = "1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ"
 PARTNER_SHEET_ID = "1VOKkuHN-lcx0Ps2VRSV_4IfkuG5fwFZb6UyT9gYVPeY"
 ESCALATION_SHEET_ID = "1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc"
-ROHIT_CALL_TAGGING_SHEET_ID = "1C5HA0zk"  # Placeholder — actual full ID TBD
-CANCELLED_CALLING_SHEET_ID = "1Bv0DHqI"   # Placeholder — actual full ID TBD
-CUSTOMER_COMPLAINT_SHEET_ID = "1c75Of_o"  # Placeholder — actual full ID TBD
+ROHIT_CALL_TAGGING_SHEET_ID = "1C5HAqbpMxxjF76NHY-6OY0AIr1MML0vG0QfywT5P0zk"
+CANCELLED_CALLING_SHEET_ID = "1Bv0Dr6vv3SvQbyZRYPKAGJGCnTcrQcItp-PRcVsgHqI"
+CUSTOMER_COMPLAINT_SHEET_ID = "1c75OazHxddw5DLeje5Icaqcrk2TmqF4QxzIzR4UQf_o"
 
 SCOPES_READONLY = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 SCOPES_READWRITE = ["https://www.googleapis.com/auth/spreadsheets"]

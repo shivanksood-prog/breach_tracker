@@ -895,8 +895,13 @@ def breach1_sync():
         except Exception as e:
             source_counts["churn_feb"] = f"error: {e}"
 
-        # Source 3: Rohit Call Tagging (TBD — no cases yet)
-        source_counts["rohit_call_tagging"] = 0
+        # Source 3: Rohit Call Tagging (filter TBD — fetch to confirm connector works)
+        try:
+            raw_cases = fetch_rohit_call_tagging_cases()
+            # No disintermediation filter value confirmed yet — report raw count
+            source_counts["rohit_call_tagging"] = f"0 (sheet has {len(raw_cases)} rows, filter TBD)"
+        except Exception as e:
+            source_counts["rohit_call_tagging"] = f"error: {e}"
 
         # Source 4: Cancelled Calling
         try:
