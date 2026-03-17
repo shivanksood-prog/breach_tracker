@@ -115,6 +115,57 @@ def generate_penalty_xlsx(cases: list) -> bytes:
     return buf.getvalue()
 
 
+def generate_b1_penalty_xlsx(cases: list) -> bytes:
+    """Generate B1 (FP1) penalty Excel file. One row per case, -2000 each."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "FP1 Partner Penalty"
+
+    # Header style
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
+    hdr_align = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+
+    headers = ["AccountId", "Amount", "Remark"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = hdr_align
+        cell.border = thin_border
+
+    # Data rows — one row per case (NOT aggregated per partner)
+    row_idx = 2
+    for c in cases:
+        pid = c.get("partner_id") or ""
+        try:
+            pid_int = int(float(pid))
+        except (ValueError, TypeError):
+            pid_int = pid
+        ws.cell(row=row_idx, column=1, value=pid_int).border = thin_border
+        amt_cell = ws.cell(row=row_idx, column=2, value=-2000)
+        amt_cell.number_format = '#,##0'
+        amt_cell.border = thin_border
+        ws.cell(row=row_idx, column=3, value="Breach Fundamental Principle 1").border = thin_border
+        row_idx += 1
+
+    # Auto-width columns
+    ws.column_dimensions["A"].width = 18
+    ws.column_dimensions["B"].width = 15
+    ws.column_dimensions["C"].width = 45
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 def generate_partner_comms_csv(cases: list) -> str:
     out = io.StringIO()
     w = csv.writer(out)

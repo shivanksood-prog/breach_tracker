@@ -179,6 +179,43 @@ def _migrate():
             conn.execute("ALTER TABLE cases ADD COLUMN refund_payout_link TEXT")
         except Exception:
             pass  # already exists
+        # B1 overhaul columns
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN source TEXT DEFAULT 'churn_logic'")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN partner_id TEXT")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN report_text TEXT")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN reported_by TEXT")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN action_type TEXT")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN penalty_state TEXT DEFAULT 'none'")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN penalty_amount REAL DEFAULT -2000")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN penalty_email_state TEXT DEFAULT 'pending'")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN penalty_email_sent_at TEXT")
+        except Exception:
+            pass
 
 
 def now_ist() -> str:
@@ -459,6 +496,7 @@ def upsert_breach1_case(data: dict):
                 "r_oct", "r_nov", "r_dec", "r_jan", "risk_score", "partner_status",
                 "connected", "calling_remarks", "disintermediation", "call_recording",
                 "called_by", "call_timestamp", "calling_status", "partner_email",
+                "source", "partner_id", "report_text", "reported_by",
             }
             updates = {k: v for k, v in data.items() if k in safe_keys}
             if updates:
@@ -470,7 +508,7 @@ def upsert_breach1_case(data: dict):
                 )
 
 
-def get_breach1_cases(partner=None, zone=None, status=None, email_state=None, search=None) -> list:
+def get_breach1_cases(partner=None, zone=None, status=None, email_state=None, search=None, source=None, action_type=None) -> list:
     with get_conn() as conn:
         query = "SELECT * FROM breach1_cases WHERE 1=1"
         params = []
@@ -486,6 +524,12 @@ def get_breach1_cases(partner=None, zone=None, status=None, email_state=None, se
         if email_state and email_state != "all":
             query += " AND email_state = ?"
             params.append(email_state)
+        if source and source != "all":
+            query += " AND source = ?"
+            params.append(source)
+        if action_type and action_type != "all":
+            query += " AND action_type = ?"
+            params.append(action_type)
         if search:
             query += " AND (customer_mobile LIKE ? OR partner_name LIKE ? OR zone LIKE ? OR lng_nas_id LIKE ?)"
             s = f"%{search}%"
@@ -515,7 +559,22 @@ def get_breach1_summary() -> dict:
         ).fetchall():
             by_email[row["email_state"]] = row["cnt"]
         partners = conn.execute("SELECT COUNT(DISTINCT partner_name) FROM breach1_cases").fetchone()[0]
-        return {"total": total, "by_status": by_status, "by_email_state": by_email, "partners": partners}
+        by_source = {}
+        for row in conn.execute(
+            "SELECT source, COUNT(*) as cnt FROM breach1_cases GROUP BY source"
+        ).fetchall():
+            by_source[row["source"]] = row["cnt"]
+        warning_sent = conn.execute(
+            "SELECT COUNT(*) FROM breach1_cases WHERE action_type='warning' AND email_state='sent'"
+        ).fetchone()[0]
+        penalty_done = conn.execute(
+            "SELECT COUNT(*) FROM breach1_cases WHERE action_type='penalty' AND penalty_state='email_sent'"
+        ).fetchone()[0]
+        return {
+            "total": total, "by_status": by_status, "by_email_state": by_email,
+            "partners": partners, "by_source": by_source,
+            "warning_sent": warning_sent, "penalty_done": penalty_done,
+        }
 
 
 def get_breach1_partners() -> list:
@@ -565,6 +624,76 @@ def get_breach1_email_log(limit=100) -> list:
             "SELECT * FROM breach1_email_log ORDER BY sent_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def set_breach1_action_type(case_ids: list, action_type: str):
+    """Set action_type ('warning' or 'penalty') on selected cases."""
+    ts = now_ist()
+    with get_conn() as conn:
+        for cid in case_ids:
+            conn.execute(
+                "UPDATE breach1_cases SET action_type=?, updated_at=? WHERE id=?",
+                (action_type, ts, cid),
+            )
+
+
+def get_breach1_penalty_cases(partner=None) -> list:
+    """Get cases where action_type='penalty' and penalty_state='none'."""
+    with get_conn() as conn:
+        query = "SELECT * FROM breach1_cases WHERE action_type='penalty' AND penalty_state='none'"
+        params = []
+        if partner and partner != "all":
+            query += " AND partner_name = ?"
+            params.append(partner)
+        query += " ORDER BY partner_name"
+        rows = conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def mark_b1_penalty_csv_generated(case_ids: list):
+    ts = now_ist()
+    with get_conn() as conn:
+        for cid in case_ids:
+            conn.execute(
+                "UPDATE breach1_cases SET penalty_state='csv_generated', updated_at=? WHERE id=?",
+                (ts, cid),
+            )
+
+
+def mark_b1_penalty_uploaded(partner_id: str) -> dict:
+    """Advance penalty_state from csv_generated to uploaded for cases matching partner_id."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id FROM breach1_cases WHERE partner_id=? AND action_type='penalty' AND penalty_state='csv_generated'",
+            (partner_id,),
+        ).fetchall()
+        if not rows:
+            return {"matched": False, "partner_id": partner_id}
+        ts = now_ist()
+        for row in rows:
+            conn.execute(
+                "UPDATE breach1_cases SET penalty_state='uploaded', updated_at=? WHERE id=?",
+                (ts, row["id"]),
+            )
+        return {"matched": True, "partner_id": partner_id, "count": len(rows)}
+
+
+def mark_b1_penalty_email_sent(case_ids: list):
+    ts = now_ist()
+    with get_conn() as conn:
+        for cid in case_ids:
+            conn.execute(
+                "UPDATE breach1_cases SET penalty_state='email_sent', penalty_email_state='sent', penalty_email_sent_at=?, updated_at=? WHERE id=?",
+                (ts, ts, cid),
+            )
+
+
+def get_breach1_sources() -> list:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT source FROM breach1_cases WHERE source IS NOT NULL ORDER BY source"
+        ).fetchall()
+        return [r[0] for r in rows]
 
 
 # ── Breach 4 (Router Misuse) ────────────────────────────────────────────────

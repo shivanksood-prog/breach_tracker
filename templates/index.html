@@ -290,11 +290,10 @@
 
   <!-- KPI Cards -->
   <div class="kpi-grid" id="b1-kpi">
-    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b1k-total">—</div><div class="kpi-sub">From Sheet</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b1k-total">—</div><div class="kpi-sub">All Sources</div></div>
     <div class="kpi-card org"><div class="kpi-label">Partners</div><div class="kpi-value" id="b1k-partners">—</div><div class="kpi-sub">Unique</div></div>
-    <div class="kpi-card pink"><div class="kpi-label">Termination</div><div class="kpi-value" id="b1k-term">—</div><div class="kpi-sub">Partner status</div></div>
-    <div class="kpi-card warn"><div class="kpi-label">Temp Suspended</div><div class="kpi-value" id="b1k-susp">—</div><div class="kpi-sub">Partner status</div></div>
-    <div class="kpi-card ok"><div class="kpi-label">Active</div><div class="kpi-value" id="b1k-active">—</div><div class="kpi-sub">Partner status</div></div>
+    <div class="kpi-card pink"><div class="kpi-label">Warning Sent</div><div class="kpi-value" id="b1k-warning">—</div><div class="kpi-sub">Email done</div></div>
+    <div class="kpi-card warn"><div class="kpi-label">Penalty Done</div><div class="kpi-value" id="b1k-penalty">—</div><div class="kpi-sub">Email sent</div></div>
     <div class="kpi-card blue"><div class="kpi-label">Email Pending</div><div class="kpi-value" id="b1k-epend">—</div><div class="kpi-sub">Not sent</div></div>
     <div class="kpi-card ok"><div class="kpi-label">Email Sent</div><div class="kpi-value" id="b1k-esent">—</div><div class="kpi-sub">Delivered</div></div>
   </div>
@@ -306,6 +305,7 @@
     <button class="btn btn-outline btn-sm" onclick="showEmailComposer()">📧 Compose Email</button>
     <button class="btn btn-outline btn-sm" onclick="showEmailLog()">📋 Email Log</button>
     <button class="btn btn-success btn-sm" onclick="previewEscalation()">📤 Update Google Sheet</button>
+    <button class="btn btn-outline btn-sm" onclick="showManualReport()">+ Report Case</button>
     <div class="spacer"></div>
     <span id="b1-sync-status" style="font-size:11px;color:var(--text-3)"></span>
   </div>
@@ -325,6 +325,20 @@
       <option value="pending">Pending</option>
       <option value="sent">Sent</option>
     </select>
+    <select id="b1fSource" onchange="loadB1Cases()">
+      <option value="all">All Sources</option>
+      <option value="churn_logic">6mo Churn</option>
+      <option value="churn_feb">Churn Feb</option>
+      <option value="rohit_call_tagging">Rohit Calling</option>
+      <option value="cancelled_calling">Cancelled Calling</option>
+      <option value="customer_complaint">Customer Complaints</option>
+      <option value="manual_report">Manual Report</option>
+    </select>
+    <select id="b1fAction" onchange="loadB1Cases()">
+      <option value="all">All Actions</option>
+      <option value="warning">Warning</option>
+      <option value="penalty">Penalty</option>
+    </select>
     <input type="search" id="b1fSearch" placeholder="Search mobile, partner…" oninput="loadB1Cases()"/>
     <span id="b1fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
   </div>
@@ -335,9 +349,9 @@
       <thead><tr>
         <th class="check-col"><input type="checkbox" id="b1-chk-all" onchange="b1SelectAll(this.checked)"/></th>
         <th>Partner</th><th>Customer Mobile</th><th>Expiry Date</th><th>Zone</th><th>City</th>
-        <th>Tenure</th><th>Risk Score</th><th>Status</th><th>Email</th>
+        <th>Risk Score</th><th>Status</th><th>Source</th><th>Action</th><th>Email</th>
       </tr></thead>
-      <tbody id="b1Body"><tr><td colspan="10" class="loading-state">Click "Sync from Sheet" to load cases</td></tr></tbody>
+      <tbody id="b1Body"><tr><td colspan="11" class="loading-state">Click "Sync from Sheet" to load cases</td></tr></tbody>
     </table>
   </div>
 
@@ -417,11 +431,98 @@
     </div>
   </div>
 
+  <!-- Manual Report Form -->
+  <div id="manualReportSection" style="display:none;margin-top:16px">
+    <div class="email-composer">
+      <h3>+ Report Disintermediation Case</h3>
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:12px">Enter details about the case. Partner name and mobile will be auto-extracted.</p>
+      <div class="fg" style="margin-bottom:12px">
+        <label>Case Details</label>
+        <textarea id="manualReportText" rows="5" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;resize:vertical" placeholder="Enter partner name, customer mobile number (10 digits), zone/city, what happened, any proof links..."></textarea>
+      </div>
+      <div class="fg" style="margin-bottom:12px">
+        <label>Reported By</label>
+        <input type="text" id="manualReportBy" placeholder="Your name" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px"/>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="submitManualReport()">Submit Report</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('manualReportSection').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Penalty Actions Panel -->
+  <div id="penaltyPanel" style="display:none;margin-top:16px">
+    <div class="email-composer">
+      <h3>Penalty Actions — FP1</h3>
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+        <div><span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3)">Penalty Cases:</span> <strong id="pp-count" style="color:var(--pink);font-size:18px">0</strong></div>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="flex:1;min-width:200px;padding:16px;border:2px solid var(--border);border-radius:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:8px">Step 1: Download Penalty XLSX</div>
+          <button class="btn btn-orange btn-sm" onclick="downloadB1PenaltyXlsx()">Download XLSX</button>
+        </div>
+        <div style="flex:1;min-width:200px;padding:16px;border:2px solid var(--border);border-radius:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:8px">Step 2: Upload Result</div>
+          <input type="file" id="b1PenaltyFile" accept=".xlsx,.xls,.csv" style="font-size:12px"/>
+          <button class="btn btn-outline btn-sm" onclick="uploadB1PenaltyResult()" style="margin-top:6px">Upload</button>
+          <div id="b1PenaltyUploadStatus" style="font-size:12px;margin-top:6px"></div>
+        </div>
+        <div style="flex:1;min-width:200px;padding:16px;border:2px solid var(--border);border-radius:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:8px">Step 3: Send Penalty Email</div>
+          <button class="btn btn-primary btn-sm" onclick="showPenaltyEmailComposer()">Compose Penalty Email</button>
+        </div>
+      </div>
+
+      <!-- Penalty Email Composer (inline) -->
+      <div id="penaltyEmailComposer" style="display:none;border-top:1px solid var(--border);padding-top:16px">
+        <h4 style="font-size:14px;margin-bottom:12px">Penalty Email Composer</h4>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Select Proof Variables</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px" id="penVarToggles"></div>
+        <div class="var-grid" id="penVarGrid" style="margin-bottom:14px"></div>
+        <div class="form-row">
+          <div class="fg">
+            <label>Language</label>
+            <select id="pen-lang" onchange="previewPenaltyEmail()">
+              <option value="both">Both (Hindi + English)</option>
+              <option value="hi">Hindi Only</option>
+              <option value="en">English Only</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Test Email (optional)</label>
+            <input type="email" id="pen-test-email" placeholder="your@email.com"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-outline" onclick="previewPenaltyEmail()">Preview</button>
+          <button class="btn btn-info" onclick="sendPenaltyEmail(true)" id="penTestSendBtn">Send Test</button>
+          <button class="btn btn-primary" onclick="sendPenaltyEmail(false)" id="penRealSendBtn">Send to Partners</button>
+        </div>
+        <div id="penEmailPreview" style="display:none;margin-top:14px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Penalty Email Preview</div>
+          <div class="email-preview">
+            <div class="ep-subject" id="pen-ep-subject"></div>
+            <div class="ep-body" id="pen-ep-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('penaltyPanel').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- B1 Floating selection bar -->
   <div id="b1SelBar" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:12px;display:none;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:999;font-size:13px;font-weight:500">
     <span>Selected: <span style="color:#A3E635;font-weight:700" id="b1SelCount">0</span></span>
-    <button class="btn btn-orange btn-sm" onclick="showEmailComposer()">📧 Compose Email</button>
-    <button class="btn btn-outline btn-sm" style="color:white;border-color:rgba(255,255,255,.3)" onclick="b1ClearSelection()">✕ Clear</button>
+    <button class="btn btn-orange btn-sm" onclick="markB1Action('warning')">Mark as Warning</button>
+    <button class="btn btn-sm" style="background:#EF4444;color:white" onclick="markB1Action('penalty')">Mark as Penalty</button>
+    <button class="btn btn-outline btn-sm" style="color:white;border-color:rgba(255,255,255,.3)" onclick="showEmailComposer()">Compose Warning Email</button>
+    <button class="btn btn-outline btn-sm" style="color:white;border-color:rgba(255,255,255,.3)" onclick="b1ClearSelection()">Clear</button>
   </div>
 
 </div><!-- /breach1 -->
@@ -856,12 +957,10 @@ async function loadB1Summary() {
   const s = await api('GET', '/api/breach1/summary');
   document.getElementById('b1k-total').textContent = s.total ?? '—';
   document.getElementById('b1k-partners').textContent = s.partners ?? '—';
-  document.getElementById('b1k-term').textContent = s.by_status?.TERMINATION ?? '0';
-  document.getElementById('b1k-susp').textContent = s.by_status?.['TEMPORARY SUSPENSION'] ?? '0';
-  document.getElementById('b1k-active').textContent = s.by_status?.ACTIVE ?? '0';
+  document.getElementById('b1k-warning').textContent = s.warning_sent ?? '0';
+  document.getElementById('b1k-penalty').textContent = s.penalty_done ?? '0';
   document.getElementById('b1k-epend').textContent = s.by_email_state?.pending ?? '0';
   document.getElementById('b1k-esent').textContent = s.by_email_state?.sent ?? '0';
-  // Nav badge
   const pending = s.by_email_state?.pending ?? 0;
   const badge = document.getElementById('b1-badge');
   badge.style.display = pending > 0 ? 'inline' : 'none';
@@ -886,19 +985,44 @@ async function loadB1Cases() {
   const zone = document.getElementById('b1fZone').value;
   const status = document.getElementById('b1fStatus').value;
   const emailState = document.getElementById('b1fEmail').value;
+  const source = document.getElementById('b1fSource').value;
+  const actionType = document.getElementById('b1fAction').value;
   const search = document.getElementById('b1fSearch').value.trim();
-  b1Cases = await api('GET', `/api/breach1/cases?partner=${encodeURIComponent(partner)}&zone=${encodeURIComponent(zone)}&status=${encodeURIComponent(status)}&email_state=${emailState}&search=${encodeURIComponent(search)}`);
+  b1Cases = await api('GET', `/api/breach1/cases?partner=${encodeURIComponent(partner)}&zone=${encodeURIComponent(zone)}&status=${encodeURIComponent(status)}&email_state=${emailState}&source=${encodeURIComponent(source)}&action_type=${encodeURIComponent(actionType)}&search=${encodeURIComponent(search)}`);
   renderB1Cases();
 }
 
 function renderB1Cases() {
   const body = document.getElementById('b1Body');
-  document.getElementById('b1fCount').textContent = b1Cases.length + ' case(s)';
-  if (!b1Cases.length) {
-    body.innerHTML = '<tr><td colspan="10"><div class="empty-state">No cases. Click "Sync from Sheet" to import.</div></td></tr>';
+  document.getElementById('b1fCount').textContent = (Array.isArray(b1Cases) ? b1Cases.length : 0) + ' case(s)';
+  if (!Array.isArray(b1Cases) || !b1Cases.length) {
+    body.innerHTML = '<tr><td colspan="11"><div class="empty-state">No cases. Click "Sync from Sheet" to import.</div></td></tr>';
     return;
   }
-  // Group by partner
+  const sourceColors = {
+    churn_logic: '#8B5CF6', churn_feb: '#3B82F6', rohit_call_tagging: '#F59E0B',
+    cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
+  };
+  const sourceLabels = {
+    churn_logic: 'Churn', churn_feb: 'Feb', rohit_call_tagging: 'Rohit',
+    cancelled_calling: 'Cancelled', customer_complaint: 'Complaint', manual_report: 'Manual',
+  };
+  function actionBadge(c) {
+    if (!c.action_type) return '<span style="font-size:11px;color:var(--text-3)">—</span>';
+    if (c.action_type === 'warning') {
+      return c.email_state === 'sent'
+        ? '<span class="pill pill-yes">Warning Sent</span>'
+        : '<span class="pill" style="background:#FEF3C7;color:#92400E">Warning</span>';
+    }
+    if (c.action_type === 'penalty') {
+      const ps = c.penalty_state || 'none';
+      if (ps === 'email_sent') return '<span class="pill pill-yes">Penalty Done</span>';
+      if (ps === 'uploaded') return '<span class="pill" style="background:#DBEAFE;color:#1E40AF">Uploaded</span>';
+      if (ps === 'csv_generated') return '<span class="pill" style="background:#FEF3C7;color:#92400E">CSV Done</span>';
+      return '<span class="pill" style="background:#FEE2E2;color:#991B1B">Penalty</span>';
+    }
+    return '';
+  }
   const groups = {};
   b1Cases.forEach(c => {
     const p = c.partner_name || 'Unknown';
@@ -910,7 +1034,7 @@ function renderB1Cases() {
     const email = items[0]?.partner_email || '';
     const pKey = partner.replace(/[^a-zA-Z0-9]/g,'');
     html += `<tr class="partner-header" onclick="togglePartnerGroup('${pKey}')">
-      <td colspan="10"><div class="partner-header-inner">
+      <td colspan="11"><div class="partner-header-inner">
         <span class="day-chevron" id="pch-${pKey}">▼</span>
         <span class="partner-label">${partner}</span>
         <span class="partner-meta">${items.length} case(s)</span>
@@ -923,6 +1047,9 @@ function renderB1Cases() {
       const emailBadge = c.email_state === 'sent'
         ? '<span class="pill pill-yes">Sent</span>'
         : '<span class="pill pill-no">Pending</span>';
+      const src = c.source || 'churn_logic';
+      const srcColor = sourceColors[src] || '#888';
+      const srcLabel = sourceLabels[src] || src;
       html += `<tr class="pg-${pKey}">
         <td class="check-col"><input type="checkbox" class="b1-chk" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
         <td style="font-size:12px">${c.partner_name||'—'}</td>
@@ -930,9 +1057,10 @@ function renderB1Cases() {
         <td style="font-size:12px">${c.expiry_dt||'—'}</td>
         <td style="font-size:12px">${c.zone||'—'}</td>
         <td style="font-size:12px">${c.city||'—'}</td>
-        <td style="font-size:12px">${c.tenure||'—'}</td>
         <td><strong>${c.risk_score||'—'}</strong></td>
         <td><span class="state-badge ${statusClass}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
+        <td><span style="background:${srcColor}22;color:${srcColor};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">${srcLabel}</span></td>
+        <td>${actionBadge(c)}</td>
         <td>${emailBadge}</td>
       </tr>`;
     });
@@ -974,6 +1102,163 @@ function updateB1SelBar() {
   document.getElementById('b1SelCount').textContent = n;
   document.getElementById('ec-count').textContent = n;
   bar.style.display = n > 0 ? 'flex' : 'none';
+}
+
+async function markB1Action(actionType) {
+  if (!b1Selected.size) { toast('Select cases first', 'error'); return; }
+  const r = await api('POST', '/api/breach1/set-action', {
+    case_ids: [...b1Selected], action_type: actionType
+  });
+  if (r.ok) {
+    toast(`${r.count} case(s) marked as ${actionType}`, 'success');
+    await Promise.all([loadB1Summary(), loadB1Cases()]);
+    if (actionType === 'warning') showEmailComposer();
+    if (actionType === 'penalty') showPenaltyPanel();
+  } else {
+    toast(r.error || 'Failed', 'error');
+  }
+}
+
+function showPenaltyPanel() {
+  document.getElementById('penaltyPanel').style.display = '';
+  document.getElementById('pp-count').textContent = b1Selected.size;
+  document.getElementById('penaltyPanel').scrollIntoView({behavior:'smooth'});
+}
+
+async function downloadB1PenaltyXlsx() {
+  const caseIds = [...b1Selected];
+  try {
+    const resp = await fetch('/api/breach1/penalty-xlsx', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({case_ids: caseIds})
+    });
+    if (!resp.ok) { const e = await resp.json(); toast(e.error||'Failed','error'); return; }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'fp1_penalty.xlsx'; a.click();
+    URL.revokeObjectURL(url);
+    toast('Penalty XLSX downloaded', 'success');
+    await loadB1Cases();
+  } catch(e) { toast('Download error: '+e.message, 'error'); }
+}
+
+async function uploadB1PenaltyResult() {
+  const fileInput = document.getElementById('b1PenaltyFile');
+  const status = document.getElementById('b1PenaltyUploadStatus');
+  if (!fileInput.files.length) { toast('Select a file', 'error'); return; }
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  try {
+    const resp = await fetch('/api/breach1/upload-penalty-status', {method:'POST', body: fd});
+    const r = await resp.json();
+    if (r.ok) {
+      status.innerHTML = `<span style="color:var(--success)">Matched: ${r.matched_count}, Unmatched: ${r.unmatched_count}</span>`;
+      toast(`Penalty upload: ${r.matched_count} matched`, 'success');
+      await loadB1Cases();
+    } else {
+      status.innerHTML = `<span style="color:var(--pink)">${r.error}</span>`;
+    }
+  } catch(e) { status.innerHTML = `<span style="color:var(--pink)">Error: ${e.message}</span>`; }
+}
+
+// ── Penalty Email ─────────────────────────────────────────────────────────
+let b1PenaltyTemplateInfo = null;
+let b1PenSelectedVars = new Set();
+
+async function showPenaltyEmailComposer() {
+  document.getElementById('penaltyEmailComposer').style.display = '';
+  if (!b1PenaltyTemplateInfo) {
+    b1PenaltyTemplateInfo = await api('GET', '/api/breach1/penalty-template');
+  }
+  const el = document.getElementById('penVarToggles');
+  el.innerHTML = '';
+  for (const [key, info] of Object.entries(b1PenaltyTemplateInfo.proof_variables)) {
+    const checked = b1PenSelectedVars.has(key);
+    el.innerHTML += `<label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:2px solid ${checked?'var(--pink)':'var(--border)'};border-radius:8px;cursor:pointer;background:${checked?'var(--pink-light)':'white'};font-size:13px;font-weight:500">
+      <input type="checkbox" ${checked?'checked':''} onchange="togglePenVar('${key}',this.checked)" style="accent-color:var(--pink)"/> ${info.label}
+    </label>`;
+  }
+  renderPenVarInputs();
+}
+
+function togglePenVar(key, checked) {
+  if (checked) b1PenSelectedVars.add(key); else b1PenSelectedVars.delete(key);
+  showPenaltyEmailComposer();
+}
+
+function renderPenVarInputs() {
+  const grid = document.getElementById('penVarGrid');
+  grid.innerHTML = '';
+  for (const key of b1PenSelectedVars) {
+    const info = b1PenaltyTemplateInfo.proof_variables[key];
+    const autoFill = key === 'LAST_SERVICE_DATE' || key === 'PHONE_NUMBER_FIRST4';
+    grid.innerHTML += `<div class="fg"><label>${info.label}</label><input type="text" id="penvar-${key}" placeholder="${autoFill ? 'Auto-filled' : 'Enter value…'}"/></div>`;
+  }
+}
+
+function getPenVarsAndValues() {
+  const selected = [...b1PenSelectedVars];
+  const values = {};
+  selected.forEach(v => {
+    const el = document.getElementById('penvar-'+v);
+    if (el && el.value.trim()) values[v] = el.value.trim();
+  });
+  return { selected, values };
+}
+
+async function previewPenaltyEmail() {
+  const { selected, values } = getPenVarsAndValues();
+  const lang = document.getElementById('pen-lang').value;
+  const r = await api('POST', '/api/breach1/preview-penalty-email', {
+    language: lang, selected_vars: selected, values
+  });
+  if (r.error) { toast(r.error, 'error'); return; }
+  document.getElementById('penEmailPreview').style.display = '';
+  document.getElementById('pen-ep-subject').textContent = r.subject;
+  document.getElementById('pen-ep-body').textContent = r.body_text;
+}
+
+async function sendPenaltyEmail(isTest) {
+  const { selected, values } = getPenVarsAndValues();
+  const lang = document.getElementById('pen-lang').value;
+  const testEmail = document.getElementById('pen-test-email').value.trim();
+  if (isTest && !testEmail) { toast('Enter a test email', 'error'); return; }
+  const caseIds = [...b1Selected];
+  const btn = isTest ? document.getElementById('penTestSendBtn') : document.getElementById('penRealSendBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await api('POST', '/api/breach1/send-penalty-email', {
+      case_ids: caseIds, language: lang, selected_vars: selected, values,
+      test_email: isTest ? testEmail : '',
+    });
+    if (r.sent > 0) toast(`${isTest?'Test ':''}Penalty email sent to ${r.sent}/${r.total}`, 'success');
+    const failed = r.results?.filter(x => !x.ok) || [];
+    if (failed.length) toast(`${failed.length} failed: ${failed[0].error}`, 'error');
+    if (!isTest) await Promise.all([loadB1Summary(), loadB1Cases()]);
+  } catch(e) { toast('Send error: '+e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = isTest ? 'Send Test' : 'Send to Partners'; }
+}
+
+function showManualReport() {
+  document.getElementById('manualReportSection').style.display = '';
+  document.getElementById('manualReportSection').scrollIntoView({behavior:'smooth'});
+}
+
+async function submitManualReport() {
+  const text = document.getElementById('manualReportText').value.trim();
+  const by = document.getElementById('manualReportBy').value.trim();
+  if (!text) { toast('Enter case details', 'error'); return; }
+  const r = await api('POST', '/api/breach1/manual-report', { report_text: text, reported_by: by });
+  if (r.ok) {
+    toast(`Report submitted. Partner: ${r.extracted.partner_name}, Mobile: ${r.extracted.customer_mobile || 'not found'}`, 'success');
+    document.getElementById('manualReportText').value = '';
+    document.getElementById('manualReportBy').value = '';
+    document.getElementById('manualReportSection').style.display = 'none';
+    await Promise.all([loadB1Summary(), loadB1Cases()]);
+  } else {
+    toast(r.error || 'Failed', 'error');
+  }
 }
 
 // ── Email Composer ────────────────────────────────────────────────────────────

@@ -11,6 +11,9 @@ SA_FILE = Path(__file__).parent / "service_account.json"
 DISINTERMEDIATION_SHEET_ID = "1UiCQoSDGVEjVbr6qpUU5KB-5wZfg7wygJz2-gOp5eTQ"
 PARTNER_SHEET_ID = "1VOKkuHN-lcx0Ps2VRSV_4IfkuG5fwFZb6UyT9gYVPeY"
 ESCALATION_SHEET_ID = "1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc"
+ROHIT_CALL_TAGGING_SHEET_ID = "1C5HA0zk"  # Placeholder — actual full ID TBD
+CANCELLED_CALLING_SHEET_ID = "1Bv0DHqI"   # Placeholder — actual full ID TBD
+CUSTOMER_COMPLAINT_SHEET_ID = "1c75Of_o"  # Placeholder — actual full ID TBD
 
 SCOPES_READONLY = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 SCOPES_READWRITE = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -43,6 +46,82 @@ def fetch_disintermediation_cases() -> list[dict]:
     cases = []
     for row in rows[1:]:
         # Pad row to match headers length
+        padded = row + [""] * (len(headers) - len(row))
+        case = {headers[i]: padded[i] for i in range(len(headers))}
+        cases.append(case)
+    return cases
+
+
+def fetch_churn_feb_cases() -> list[dict]:
+    """Read all rows from the Feb tab of the 6-month churn sheet."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=DISINTERMEDIATION_SHEET_ID,
+        range="Feb!A1:V5000",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return []
+    headers = rows[0]
+    cases = []
+    for row in rows[1:]:
+        padded = row + [""] * (len(headers) - len(row))
+        case = {headers[i]: padded[i] for i in range(len(headers))}
+        cases.append(case)
+    return cases
+
+
+def fetch_rohit_call_tagging_cases() -> list[dict]:
+    """Read rows from Rohit Call Tagging sheet. Filter TBD — no disintermediation cases yet."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=ROHIT_CALL_TAGGING_SHEET_ID,
+        range="Sheet1!A1:Z5000",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return []
+    headers = rows[0]
+    cases = []
+    for row in rows[1:]:
+        padded = row + [""] * (len(headers) - len(row))
+        case = {headers[i]: padded[i] for i in range(len(headers))}
+        cases.append(case)
+    return cases
+
+
+def fetch_cancelled_calling_cases() -> list[dict]:
+    """Read rows from Cancelled Cx - Rajan tab. Filter: non-empty Partner Name(if Disintermediation)."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=CANCELLED_CALLING_SHEET_ID,
+        range="'Cancelled Cx - Rajan'!A1:Z5000",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return []
+    headers = rows[0]
+    cases = []
+    for row in rows[1:]:
+        padded = row + [""] * (len(headers) - len(row))
+        case = {headers[i]: padded[i] for i in range(len(headers))}
+        cases.append(case)
+    return cases
+
+
+def fetch_customer_complaint_cases() -> list[dict]:
+    """Read rows from Customer Complaints Final Raw Data tab."""
+    service = _get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=CUSTOMER_COMPLAINT_SHEET_ID,
+        range="'Final Raw Data'!A1:Z5000",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return []
+    headers = rows[0]
+    cases = []
+    for row in rows[1:]:
         padded = row + [""] * (len(headers) - len(row))
         case = {headers[i]: padded[i] for i in range(len(headers))}
         cases.append(case)

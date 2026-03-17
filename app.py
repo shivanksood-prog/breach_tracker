@@ -181,7 +181,10 @@ try:
     def _sync_b1b4():
         """Sync B1/B4 from Google Sheets into SQLite."""
         try:
-            from google_sheets import fetch_disintermediation_cases, get_all_partner_emails, fetch_fp4_cases
+            from google_sheets import (fetch_disintermediation_cases, get_all_partner_emails,
+                                       fetch_fp4_cases, fetch_churn_feb_cases,
+                                       fetch_rohit_call_tagging_cases, fetch_cancelled_calling_cases,
+                                       fetch_customer_complaint_cases)
         except Exception as e:
             app.logger.error(f"B1/B4 import error: {e}")
             return
@@ -191,7 +194,7 @@ try:
         except Exception as e:
             app.logger.error(f"Partner emails fetch error: {e}")
             emails = {}
-        # B1
+        # B1 — Source 1: 6mo Churn Sheet1 (existing)
         try:
             cases = fetch_disintermediation_cases()
             cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
@@ -213,11 +216,106 @@ try:
                     "call_timestamp": c.get("Call Timestamp (Date)", ""),
                     "calling_status": c.get("Calling Status", ""),
                     "partner_email": email_info.get("email", ""),
+                    "source": "churn_logic",
                 }
                 db.upsert_breach1_case(data)
-            app.logger.info(f"B1 sync: {len(cases)} cases")
+            app.logger.info(f"B1 sync (churn_logic): {len(cases)} cases")
         except Exception as e:
-            app.logger.error(f"B1 sync error: {e}")
+            app.logger.error(f"B1 sync churn_logic error: {e}")
+        # B1 — Source 2: 6mo Churn Feb tab
+        try:
+            cases = fetch_churn_feb_cases()
+            cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
+            for c in cases:
+                partner = (c.get("partner_name") or c.get("PARTNER_NAME") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "lng_nas_id": c.get("LNG_NAS_ID", ""),
+                    "customer_mobile": c.get("MOBILE", ""),
+                    "expiry_dt": c.get("EXPIRY_DT", ""),
+                    "city": c.get("CITY", ""),
+                    "zone": c.get("ZONE", ""),
+                    "partner_name": partner,
+                    "partner_id": c.get("partner_id", ""),
+                    "risk_score": c.get("Risk score", c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", "")),
+                    "partner_status": c.get("Status", ""),
+                    "connected": c.get("Connected", ""),
+                    "calling_remarks": c.get("Calling Remarks", ""),
+                    "disintermediation": c.get("Disintermediation", ""),
+                    "call_recording": c.get("Call Recording", ""),
+                    "called_by": c.get("Called By", ""),
+                    "call_timestamp": c.get("Call Timestamp (Date)", ""),
+                    "calling_status": c.get("Calling Status", ""),
+                    "partner_email": email_info.get("email", ""),
+                    "source": "churn_feb",
+                }
+                db.upsert_breach1_case(data)
+            app.logger.info(f"B1 sync (churn_feb): {len(cases)} cases")
+        except Exception as e:
+            app.logger.error(f"B1 sync churn_feb error: {e}")
+        # B1 — Source 3: Rohit Call Tagging (no disintermediation cases yet — TBD filter)
+        try:
+            cases = fetch_rohit_call_tagging_cases()
+            # Filter TBD — skip all until Ops Tagging (P1) value is confirmed
+            cases = []  # No matching cases yet
+            for c in cases:
+                partner = (c.get("PARTNER_NAME") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "customer_mobile": c.get("MOBILE", ""),
+                    "partner_id": c.get("ACCOUNT_ID", ""),
+                    "call_recording": c.get("RECORDING_URL", ""),
+                    "calling_status": c.get("CALL_STATUS", ""),
+                    "calling_remarks": c.get("TRANSCRIPT", ""),
+                    "partner_name": partner,
+                    "partner_email": email_info.get("email", ""),
+                    "source": "rohit_call_tagging",
+                }
+                db.upsert_breach1_case(data)
+            app.logger.info(f"B1 sync (rohit_call_tagging): {len(cases)} cases")
+        except Exception as e:
+            app.logger.error(f"B1 sync rohit_call_tagging error: {e}")
+        # B1 — Source 4: Cancelled Calling
+        try:
+            cases = fetch_cancelled_calling_cases()
+            # Filter: only rows where Partner Name(if Disintermediation) is non-empty
+            cases = [c for c in cases if (c.get("Partner Name(if Disintermediation)") or "").strip()]
+            for c in cases:
+                partner = (c.get("Partner Name(if Disintermediation)") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "customer_mobile": c.get("Mobile", ""),
+                    "partner_id": c.get("Latest Partner ID", ""),
+                    "partner_name": partner,
+                    "call_recording": c.get("Call Recording", ""),
+                    "calling_remarks": c.get("Remarks", ""),
+                    "call_timestamp": c.get("Call Date", ""),
+                    "partner_email": email_info.get("email", ""),
+                    "source": "cancelled_calling",
+                }
+                db.upsert_breach1_case(data)
+            app.logger.info(f"B1 sync (cancelled_calling): {len(cases)} cases")
+        except Exception as e:
+            app.logger.error(f"B1 sync cancelled_calling error: {e}")
+        # B1 — Source 5: Customer Complaints
+        try:
+            cases = fetch_customer_complaint_cases()
+            cases = [c for c in cases if (c.get("Leakage Category") or "").strip().lower() == "disintermediation"]
+            for c in cases:
+                partner = (c.get("Partner name") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "customer_mobile": c.get("Customer Phone", ""),
+                    "partner_name": partner,
+                    "calling_remarks": c.get("Leakage confirmation", ""),
+                    "call_recording": c.get("Call Recording proof", ""),
+                    "partner_email": email_info.get("email", ""),
+                    "source": "customer_complaint",
+                }
+                db.upsert_breach1_case(data)
+            app.logger.info(f"B1 sync (customer_complaint): {len(cases)} cases")
+        except Exception as e:
+            app.logger.error(f"B1 sync customer_complaint error: {e}")
         # B4
         try:
             cases = fetch_fp4_cases()
@@ -300,7 +398,9 @@ try:
     scheduler.add_job(_auto_sync, "interval", minutes=2, id="auto_sync",
                       next_run_time=datetime.now() + timedelta(minutes=2))
     scheduler.add_job(_slack_new_b2_alert, "interval", minutes=15, id="b2_new_alert")
-    # Run B1/B4 sync immediately on startup so SQLite is populated after deploy
+    # B1/B4 sync: every 1 hour (multiple sources are slow), plus immediate startup
+    scheduler.add_job(_sync_b1b4, "interval", minutes=60, id="b1b4_sync",
+                      next_run_time=datetime.now() + timedelta(minutes=60))
     scheduler.add_job(_sync_b1b4, id="b1b4_startup")
     scheduler.start()
 except ImportError:
@@ -718,53 +818,126 @@ def breach2_send_email():
 
 @app.route("/api/breach1/sync", methods=["POST"])
 def breach1_sync():
-    """Import disintermediation cases from Google Sheet and match partner emails."""
+    """Import disintermediation cases from all sources and match partner emails."""
     try:
-        from google_sheets import fetch_disintermediation_cases, get_all_partner_emails
-        cases = fetch_disintermediation_cases()
+        from google_sheets import (fetch_disintermediation_cases, get_all_partner_emails,
+                                   fetch_churn_feb_cases, fetch_rohit_call_tagging_cases,
+                                   fetch_cancelled_calling_cases, fetch_customer_complaint_cases)
         emails = get_all_partner_emails()
+        total_new = 0
+        total_updated = 0
+        total_fetched = 0
+        source_counts = {}
 
-        # Only import cases confirmed as disintermediation
-        cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
-
-        new_count = 0
-        updated_count = 0
-        for c in cases:
-            partner = (c.get("PARTNER_NAME") or "").strip()
-            email_info = emails.get(partner.lower(), {})
-            data = {
-                "lng_nas_id": c.get("LNG_NAS_ID", ""),
-                "customer_mobile": c.get("MOBILE", ""),
-                "expiry_dt": c.get("EXPIRY_DT", ""),
-                "city": c.get("CITY", ""),
-                "mis_city": c.get("MIS_CITY", ""),
-                "zone": c.get("ZONE", ""),
-                "partner_name": partner,
-                "tenure": c.get("TENURE", ""),
-                "r_oct": c.get("R total (Oct)", ""),
-                "r_nov": c.get("R total (Nov)", ""),
-                "r_dec": c.get("R total (Dec)", ""),
-                "r_jan": c.get("R total (Jan)", ""),
-                "risk_score": c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", ""),
-                "partner_status": c.get("Status", ""),
-                "connected": c.get("Connected", ""),
-                "calling_remarks": c.get("Calling Remarks", ""),
-                "disintermediation": c.get("Disintermediation", ""),
-                "call_recording": c.get("Call Recording", ""),
-                "called_by": c.get("Called By", ""),
-                "call_timestamp": c.get("Call Timestamp (Date)", ""),
-                "calling_status": c.get("Calling Status", ""),
-                "partner_email": email_info.get("email", ""),
-            }
-            existing = db.get_breach1_cases(search=data["lng_nas_id"])
-            existing = [e for e in existing if e["customer_mobile"] == data["customer_mobile"]]
+        def _count_and_upsert(data):
+            nonlocal total_new, total_updated
+            existing = db.get_breach1_cases(search=data.get("lng_nas_id") or data.get("customer_mobile", ""))
+            existing = [e for e in existing if e.get("customer_mobile") == data.get("customer_mobile")]
             if not existing:
-                new_count += 1
+                total_new += 1
             else:
-                updated_count += 1
+                total_updated += 1
             db.upsert_breach1_case(data)
 
-        return jsonify({"ok": True, "new_cases": new_count, "updated": updated_count, "total_fetched": len(cases)})
+        # Source 1: 6mo Churn Sheet1
+        try:
+            cases = fetch_disintermediation_cases()
+            cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
+            for c in cases:
+                partner = (c.get("PARTNER_NAME") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "lng_nas_id": c.get("LNG_NAS_ID", ""), "customer_mobile": c.get("MOBILE", ""),
+                    "expiry_dt": c.get("EXPIRY_DT", ""), "city": c.get("CITY", ""),
+                    "mis_city": c.get("MIS_CITY", ""), "zone": c.get("ZONE", ""),
+                    "partner_name": partner, "tenure": c.get("TENURE", ""),
+                    "r_oct": c.get("R total (Oct)", ""), "r_nov": c.get("R total (Nov)", ""),
+                    "r_dec": c.get("R total (Dec)", ""), "r_jan": c.get("R total (Jan)", ""),
+                    "risk_score": c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", ""),
+                    "partner_status": c.get("Status", ""), "connected": c.get("Connected", ""),
+                    "calling_remarks": c.get("Calling Remarks", ""),
+                    "disintermediation": c.get("Disintermediation", ""),
+                    "call_recording": c.get("Call Recording", ""), "called_by": c.get("Called By", ""),
+                    "call_timestamp": c.get("Call Timestamp (Date)", ""),
+                    "calling_status": c.get("Calling Status", ""),
+                    "partner_email": email_info.get("email", ""), "source": "churn_logic",
+                }
+                _count_and_upsert(data)
+            source_counts["churn_logic"] = len(cases)
+            total_fetched += len(cases)
+        except Exception as e:
+            source_counts["churn_logic"] = f"error: {e}"
+
+        # Source 2: 6mo Churn Feb
+        try:
+            cases = fetch_churn_feb_cases()
+            cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
+            for c in cases:
+                partner = (c.get("partner_name") or c.get("PARTNER_NAME") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "lng_nas_id": c.get("LNG_NAS_ID", ""), "customer_mobile": c.get("MOBILE", ""),
+                    "expiry_dt": c.get("EXPIRY_DT", ""), "city": c.get("CITY", ""),
+                    "zone": c.get("ZONE", ""), "partner_name": partner,
+                    "partner_id": c.get("partner_id", ""),
+                    "risk_score": c.get("Risk score", c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", "")),
+                    "partner_status": c.get("Status", ""), "connected": c.get("Connected", ""),
+                    "calling_remarks": c.get("Calling Remarks", ""),
+                    "disintermediation": c.get("Disintermediation", ""),
+                    "call_recording": c.get("Call Recording", ""), "called_by": c.get("Called By", ""),
+                    "call_timestamp": c.get("Call Timestamp (Date)", ""),
+                    "calling_status": c.get("Calling Status", ""),
+                    "partner_email": email_info.get("email", ""), "source": "churn_feb",
+                }
+                _count_and_upsert(data)
+            source_counts["churn_feb"] = len(cases)
+            total_fetched += len(cases)
+        except Exception as e:
+            source_counts["churn_feb"] = f"error: {e}"
+
+        # Source 3: Rohit Call Tagging (TBD — no cases yet)
+        source_counts["rohit_call_tagging"] = 0
+
+        # Source 4: Cancelled Calling
+        try:
+            cases = fetch_cancelled_calling_cases()
+            cases = [c for c in cases if (c.get("Partner Name(if Disintermediation)") or "").strip()]
+            for c in cases:
+                partner = (c.get("Partner Name(if Disintermediation)") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "customer_mobile": c.get("Mobile", ""), "partner_id": c.get("Latest Partner ID", ""),
+                    "partner_name": partner, "call_recording": c.get("Call Recording", ""),
+                    "calling_remarks": c.get("Remarks", ""), "call_timestamp": c.get("Call Date", ""),
+                    "partner_email": email_info.get("email", ""), "source": "cancelled_calling",
+                }
+                _count_and_upsert(data)
+            source_counts["cancelled_calling"] = len(cases)
+            total_fetched += len(cases)
+        except Exception as e:
+            source_counts["cancelled_calling"] = f"error: {e}"
+
+        # Source 5: Customer Complaints
+        try:
+            cases = fetch_customer_complaint_cases()
+            cases = [c for c in cases if (c.get("Leakage Category") or "").strip().lower() == "disintermediation"]
+            for c in cases:
+                partner = (c.get("Partner name") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "customer_mobile": c.get("Customer Phone", ""), "partner_name": partner,
+                    "calling_remarks": c.get("Leakage confirmation", ""),
+                    "call_recording": c.get("Call Recording proof", ""),
+                    "partner_email": email_info.get("email", ""), "source": "customer_complaint",
+                }
+                _count_and_upsert(data)
+            source_counts["customer_complaint"] = len(cases)
+            total_fetched += len(cases)
+        except Exception as e:
+            source_counts["customer_complaint"] = f"error: {e}"
+
+        return jsonify({"ok": True, "new_cases": total_new, "updated": total_updated,
+                        "total_fetched": total_fetched, "by_source": source_counts})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -775,9 +948,12 @@ def breach1_cases():
     zone = request.args.get("zone", "all")
     status = request.args.get("status", "all")
     email_state = request.args.get("email_state", "all")
+    source = request.args.get("source", "all")
+    action_type = request.args.get("action_type", "all")
     search = request.args.get("search", "").strip() or None
     return jsonify(db.get_breach1_cases(partner=partner, zone=zone, status=status,
-                                        email_state=email_state, search=search))
+                                        email_state=email_state, search=search,
+                                        source=source, action_type=action_type))
 
 
 @app.route("/api/breach1/cases/<int:case_id>")
@@ -991,6 +1167,215 @@ def breach1_escalation_push():
         return jsonify({"ok": True, "appended": len(rows), "message": f"{len(rows)} row(s) added"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/breach1/sources")
+def breach1_sources():
+    return jsonify(db.get_breach1_sources())
+
+
+@app.route("/api/breach1/set-action", methods=["POST"])
+def breach1_set_action():
+    """Set action_type (warning/penalty) on selected case_ids."""
+    body = request.json or {}
+    case_ids = body.get("case_ids", [])
+    action_type = body.get("action_type", "")
+    if action_type not in ("warning", "penalty"):
+        return jsonify({"error": "action_type must be 'warning' or 'penalty'"}), 400
+    if not case_ids:
+        return jsonify({"error": "No case_ids provided"}), 400
+    db.set_breach1_action_type(case_ids, action_type)
+    return jsonify({"ok": True, "count": len(case_ids), "action_type": action_type})
+
+
+@app.route("/api/breach1/penalty-xlsx", methods=["POST"])
+def breach1_penalty_xlsx():
+    """Generate penalty XLSX for B1 cases marked as penalty."""
+    body = request.json or {}
+    case_ids = body.get("case_ids", [])
+    if case_ids:
+        cases = [db.get_breach1_case(cid) for cid in case_ids]
+        cases = [c for c in cases if c and c.get("action_type") == "penalty"]
+    else:
+        cases = db.get_breach1_penalty_cases()
+    if not cases:
+        return jsonify({"error": "No penalty cases found"}), 400
+    xlsx_bytes = actions.generate_b1_penalty_xlsx(cases)
+    # Mark cases as csv_generated
+    db.mark_b1_penalty_csv_generated([c["id"] for c in cases])
+    return Response(xlsx_bytes,
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=fp1_penalty.xlsx"})
+
+
+@app.route("/api/breach1/upload-penalty-status", methods=["POST"])
+def breach1_upload_penalty_status():
+    """Upload penalty result Excel for B1 cases, match by AccountId."""
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "No file uploaded"}), 400
+    rows = []
+    fname = (f.filename or "").lower()
+    if fname.endswith(".xlsx") or fname.endswith(".xls"):
+        from openpyxl import load_workbook
+        import io
+        wb = load_workbook(io.BytesIO(f.read()), read_only=True)
+        ws = wb.active
+        headers = [str(c.value or "").strip() for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            rows.append(dict(zip(headers, row)))
+        wb.close()
+    else:
+        import csv, io
+        try:
+            text = f.read().decode("utf-8-sig")
+        except Exception:
+            return jsonify({"error": "Could not read file"}), 400
+        rows = list(csv.DictReader(io.StringIO(text)))
+
+    matched = []
+    unmatched = []
+    for row in rows:
+        partner_id = str(row.get("AccountId") or row.get("Partner Id") or "").strip()
+        if not partner_id:
+            continue
+        status = str(row.get("Process Status") or "").strip().lower()
+        if status and status != "yes":
+            unmatched.append({"partner_id": partner_id, "reason": row.get("Reason", "")})
+            continue
+        result = db.mark_b1_penalty_uploaded(partner_id)
+        if result["matched"]:
+            matched.append(result)
+        else:
+            unmatched.append({"partner_id": partner_id})
+    return jsonify({"ok": True, "matched_count": len(matched), "unmatched_count": len(unmatched),
+                    "matched": matched, "unmatched": unmatched})
+
+
+@app.route("/api/breach1/penalty-template")
+def breach1_penalty_template():
+    from email_sender import get_fp1_penalty_template_info
+    return jsonify(get_fp1_penalty_template_info())
+
+
+@app.route("/api/breach1/preview-penalty-email", methods=["POST"])
+def breach1_preview_penalty():
+    from email_sender import render_fp1_penalty_email
+    body = request.json or {}
+    language = body.get("language", "both")
+    selected_vars = body.get("selected_vars", [])
+    values = body.get("values", {})
+    try:
+        result = render_fp1_penalty_email(language, selected_vars, values)
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/breach1/send-penalty-email", methods=["POST"])
+def breach1_send_penalty_email():
+    from email_sender import render_fp1_penalty_email, send_email
+    body = request.json or {}
+    case_ids = body.get("case_ids", [])
+    language = body.get("language", "both")
+    selected_vars = body.get("selected_vars", [])
+    values = body.get("values", {})
+    test_email = body.get("test_email", "").strip()
+    is_test = bool(test_email)
+
+    results = []
+    for cid in case_ids:
+        case = db.get_breach1_case(cid)
+        if not case:
+            results.append({"case_id": cid, "ok": False, "error": "Case not found"})
+            continue
+
+        vars_filled = dict(values)
+        if "LAST_SERVICE_DATE" in selected_vars and not vars_filled.get("LAST_SERVICE_DATE"):
+            vars_filled["LAST_SERVICE_DATE"] = case.get("expiry_dt", "")
+        if "PHONE_NUMBER_FIRST4" in selected_vars and not vars_filled.get("PHONE_NUMBER_FIRST4"):
+            mobile = case.get("customer_mobile", "")
+            vars_filled["PHONE_NUMBER_FIRST4"] = mobile[:4] if len(mobile) >= 4 else mobile
+
+        rendered = render_fp1_penalty_email(language, selected_vars, vars_filled)
+        recipient = test_email if is_test else (case.get("partner_email") or "")
+
+        if not recipient:
+            results.append({"case_id": cid, "ok": False, "error": "No partner email"})
+            continue
+
+        send_result = send_email(recipient, rendered["subject"], rendered["body_text"], rendered["body_html"])
+
+        db.log_breach1_email(
+            case_id=cid,
+            partner_name=case.get("partner_name", ""),
+            partner_email=case.get("partner_email", ""),
+            recipient_email=recipient,
+            case_type=1,
+            language=language,
+            variables_json=json.dumps(vars_filled),
+            subject=rendered["subject"],
+            body_preview=rendered["body_text"][:500],
+            is_test=is_test,
+            status="sent" if send_result["ok"] else "failed",
+            error=send_result.get("error"),
+        )
+
+        if send_result["ok"] and not is_test:
+            db.mark_b1_penalty_email_sent([cid])
+
+        results.append({"case_id": cid, **send_result})
+
+    return jsonify({"results": results, "total": len(results),
+                    "sent": sum(1 for r in results if r.get("ok"))})
+
+
+@app.route("/api/breach1/manual-report", methods=["POST"])
+def breach1_manual_report():
+    """Accept a free-text manual report and create a B1 case."""
+    import re
+    body = request.json or {}
+    report_text = (body.get("report_text") or "").strip()
+    reported_by = (body.get("reported_by") or "").strip()
+    if not report_text:
+        return jsonify({"error": "report_text is required"}), 400
+
+    # Extract fields from free text
+    mobiles = re.findall(r'\b[6-9]\d{9}\b', report_text)
+    customer_mobile = mobiles[0] if mobiles else ""
+
+    # Try to match partner name from partner email list
+    try:
+        from google_sheets import get_all_partner_emails
+        partner_emails = get_all_partner_emails()
+    except Exception:
+        partner_emails = {}
+
+    partner_name = ""
+    partner_email = ""
+    partner_id = ""
+    text_lower = report_text.lower()
+    for pname_lower, info in partner_emails.items():
+        if pname_lower in text_lower:
+            partner_name = info.get("name", pname_lower)
+            partner_email = info.get("email", "")
+            partner_id = info.get("partner_id", "")
+            break
+
+    data = {
+        "customer_mobile": customer_mobile,
+        "partner_name": partner_name,
+        "partner_email": partner_email,
+        "partner_id": partner_id,
+        "report_text": report_text,
+        "reported_by": reported_by,
+        "source": "manual_report",
+    }
+    db.upsert_breach1_case(data)
+    return jsonify({"ok": True, "extracted": {
+        "customer_mobile": customer_mobile,
+        "partner_name": partner_name or "(not detected)",
+    }})
 
 
 # ── Breach 4 (Router Misuse) ──────────────────────────────────────────────────
