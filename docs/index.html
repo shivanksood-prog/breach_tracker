@@ -474,9 +474,9 @@
       <thead><tr>
         <th class="check-col"><input type="checkbox" id="b1-chk-all" onchange="b1SelectAll(this.checked)"/></th>
         <th>Partner</th><th>Customer Mobile</th><th>Expiry Date</th><th>Zone</th><th>City</th>
-        <th>Risk Score</th><th>Status</th><th>Source</th><th>Action</th><th>Email</th>
+        <th>Risk Score</th><th>Status</th><th>Action</th><th>Email</th>
       </tr></thead>
-      <tbody id="b1Body"><tr><td colspan="11" class="loading-state">Click "Sync from Sheet" to load cases</td></tr></tbody>
+      <tbody id="b1Body"><tr><td colspan="10" class="loading-state">Click "Sync from Sheet" to load cases</td></tr></tbody>
     </table>
   </div>
 
@@ -763,8 +763,8 @@
   <span>Selected: <span style="color:#A3E635;font-weight:700" id="b1SelCount">0</span></span>
   <button class="btn btn-orange btn-sm" onclick="markB1Action('warning')">Mark as Warning</button>
   <button class="btn btn-sm" style="background:#EF4444;color:white" onclick="markB1Action('penalty')">Mark as Penalty</button>
-  <button class="btn btn-outline btn-sm" style="color:white;border-color:rgba(255,255,255,.3)" onclick="showEmailComposer()">Compose Warning Email</button>
-  <button class="btn btn-outline btn-sm" style="color:white;border-color:rgba(255,255,255,.3)" onclick="b1ClearSelection()">Clear</button>
+  <button class="btn btn-sm" style="background:transparent;color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="showEmailComposer()">Compose Warning Email</button>
+  <button class="btn btn-sm" style="background:transparent;color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="b1ClearSelection()">Clear</button>
 </div>
 
 <!-- B4 Floating selection bar -->
@@ -1398,7 +1398,7 @@ function renderB1Cases() {
   const body = document.getElementById('b1Body');
   document.getElementById('b1fCount').textContent = b1Cases.length + ' case(s)';
   if (!b1Cases.length) {
-    body.innerHTML = '<tr><td colspan="11"><div class="empty-state">No cases. Click "Sync from Sheet" to import.</div></td></tr>';
+    body.innerHTML = '<tr><td colspan="10"><div class="empty-state">No cases. Click "Sync from Sheet" to import.</div></td></tr>';
     return;
   }
   const sourceColors = {
@@ -1406,9 +1406,10 @@ function renderB1Cases() {
     cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
   };
   const sourceLabels = {
-    churn_logic: 'Churn', churn_feb: 'Feb', rohit_call_tagging: 'Rohit',
-    cancelled_calling: 'Cancelled', customer_complaint: 'Complaint', manual_report: 'Manual',
+    churn_logic: '6mo Churn Logic', churn_feb: '6mo Churn — Feb', rohit_call_tagging: 'Rohit Call Tagging',
+    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Customer Complaints', manual_report: 'Manual Report',
   };
+  const sourceOrder = ['churn_logic','churn_feb','cancelled_calling','customer_complaint','rohit_call_tagging','manual_report'];
   function actionBadge(c) {
     if (!c.action_type) return '<span style="font-size:11px;color:var(--text-3)">—</span>';
     if (c.action_type === 'warning') {
@@ -1425,47 +1426,71 @@ function renderB1Cases() {
     }
     return '';
   }
-  const groups = {};
+  const bySrc = {};
   b1Cases.forEach(c => {
-    const p = c.partner_name || 'Unknown';
-    if (!groups[p]) groups[p] = [];
-    groups[p].push(c);
+    const s = c.source || 'churn_logic';
+    if (!bySrc[s]) bySrc[s] = [];
+    bySrc[s].push(c);
   });
+  const sortedSources = Object.keys(bySrc).sort((a,b) => {
+    const ia = sourceOrder.indexOf(a), ib = sourceOrder.indexOf(b);
+    return (ia===-1?99:ia) - (ib===-1?99:ib);
+  });
+
   let html = '';
-  for (const [partner, items] of Object.entries(groups).sort(([a],[b])=>a.localeCompare(b))) {
-    const email = items[0]?.partner_email || '';
-    const pKey = partner.replace(/[^a-zA-Z0-9]/g,'');
-    html += `<tr class="partner-header" onclick="togglePartnerGroup('${pKey}')">
-      <td colspan="11"><div class="partner-header-inner">
-        <span class="day-chevron" id="pch-${pKey}">▼</span>
-        <span class="partner-label">${partner}</span>
-        <span class="partner-meta">${items.length} case(s)</span>
-        ${email ? `<span class="partner-email-tag">${email}</span>` : '<span style="font-size:11px;color:#EF4444">No email</span>'}
-      </div></td>
+  for (const src of sortedSources) {
+    const srcCases = bySrc[src];
+    const srcColor = sourceColors[src] || '#888';
+    const srcLabel = sourceLabels[src] || src;
+    const srcKey = src.replace(/[^a-zA-Z0-9]/g,'');
+
+    html += `<tr class="source-header" onclick="toggleSourceGroup('${srcKey}')" style="cursor:pointer">
+      <td colspan="10" style="padding:0">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:${srcColor}11;border-left:4px solid ${srcColor}">
+          <span class="day-chevron" id="sch-${srcKey}" style="font-size:11px;color:${srcColor}">▼</span>
+          <span style="font-weight:700;font-size:13px;color:${srcColor}">${srcLabel}</span>
+          <span style="font-size:12px;color:var(--text-3)">${srcCases.length} case(s)</span>
+        </div>
+      </td>
     </tr>`;
-    items.forEach(c => {
-      const statusClass = c.partner_status === 'TERMINATION' ? 'state-TERMINATION' :
-                           c.partner_status === 'ACTIVE' ? 'state-ACTIVE' : 'state-TEMPORARY';
-      const emailBadge = c.email_state === 'sent'
-        ? '<span class="pill pill-yes">Sent</span>'
-        : '<span class="pill pill-no">Pending</span>';
-      const src = c.source || 'churn_logic';
-      const srcColor = sourceColors[src] || '#888';
-      const srcLabel = sourceLabels[src] || src;
-      html += `<tr class="pg-${pKey}">
-        <td class="check-col"><input type="checkbox" class="b1-chk" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-        <td style="font-size:12px">${c.partner_name||'—'}</td>
-        <td>${c.customer_mobile||'—'}</td>
-        <td style="font-size:12px">${c.expiry_dt||'—'}</td>
-        <td style="font-size:12px">${c.zone||'—'}</td>
-        <td style="font-size:12px">${c.city||'—'}</td>
-        <td><strong>${c.risk_score||'—'}</strong></td>
-        <td><span class="state-badge ${statusClass}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
-        <td><span style="background:${srcColor}22;color:${srcColor};font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">${srcLabel}</span></td>
-        <td>${actionBadge(c)}</td>
-        <td>${emailBadge}</td>
-      </tr>`;
+
+    const groups = {};
+    srcCases.forEach(c => {
+      const p = c.partner_name || 'Unknown';
+      if (!groups[p]) groups[p] = [];
+      groups[p].push(c);
     });
+    for (const [partner, items] of Object.entries(groups).sort(([a],[b])=>a.localeCompare(b))) {
+      const email = items[0]?.partner_email || '';
+      const pKey = srcKey + '_' + partner.replace(/[^a-zA-Z0-9]/g,'');
+      html += `<tr class="partner-header sg-${srcKey}" onclick="togglePartnerGroup('${pKey}')">
+        <td colspan="10"><div class="partner-header-inner">
+          <span class="day-chevron" id="pch-${pKey}">▼</span>
+          <span class="partner-label">${partner}</span>
+          <span class="partner-meta">${items.length} case(s)</span>
+          ${email ? `<span class="partner-email-tag">${email}</span>` : '<span style="font-size:11px;color:#EF4444">No email</span>'}
+        </div></td>
+      </tr>`;
+      items.forEach(c => {
+        const statusClass = c.partner_status === 'TERMINATION' ? 'state-TERMINATION' :
+                             c.partner_status === 'ACTIVE' ? 'state-ACTIVE' : 'state-TEMPORARY';
+        const emailBadge = c.email_state === 'sent'
+          ? '<span class="pill pill-yes">Sent</span>'
+          : '<span class="pill pill-no">Pending</span>';
+        html += `<tr class="pg-${pKey} sg-${srcKey}">
+          <td class="check-col"><input type="checkbox" class="b1-chk" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+          <td style="font-size:12px">${c.partner_name||'—'}</td>
+          <td>${c.customer_mobile||'—'}</td>
+          <td style="font-size:12px">${c.expiry_dt||'—'}</td>
+          <td style="font-size:12px">${c.zone||'—'}</td>
+          <td style="font-size:12px">${c.city||'—'}</td>
+          <td><strong>${c.risk_score||'—'}</strong></td>
+          <td><span class="state-badge ${statusClass}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
+          <td>${actionBadge(c)}</td>
+          <td>${emailBadge}</td>
+        </tr>`;
+      });
+    }
   }
   body.innerHTML = html;
 }
@@ -1473,6 +1498,14 @@ function renderB1Cases() {
 function togglePartnerGroup(key) {
   const rows = document.querySelectorAll('.pg-'+key);
   const ch = document.getElementById('pch-'+key);
+  const hidden = rows[0]?.style.display === 'none';
+  rows.forEach(r => r.style.display = hidden ? '' : 'none');
+  if (ch) ch.classList.toggle('closed', !hidden);
+}
+
+function toggleSourceGroup(key) {
+  const rows = document.querySelectorAll('.sg-'+key);
+  const ch = document.getElementById('sch-'+key);
   const hidden = rows[0]?.style.display === 'none';
   rows.forEach(r => r.style.display = hidden ? '' : 'none');
   if (ch) ch.classList.toggle('closed', !hidden);
