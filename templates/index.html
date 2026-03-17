@@ -298,6 +298,9 @@
     <div class="kpi-card ok"><div class="kpi-label">Email Sent</div><div class="kpi-value" id="b1k-esent">—</div><div class="kpi-sub">Delivered</div></div>
   </div>
 
+  <!-- Source Status Strip -->
+  <div id="b1-source-strip" style="display:flex;flex-wrap:wrap;gap:8px;padding:0 4px;margin-bottom:8px"></div>
+
   <!-- Action bar -->
   <div class="action-bar">
     <span class="action-label">Actions</span>
@@ -969,6 +972,34 @@ async function loadB1Summary() {
   const badge = document.getElementById('b1-badge');
   badge.style.display = pending > 0 ? 'inline' : 'none';
   badge.textContent = pending;
+  // Source status strip
+  renderSourceStrip(s.by_source || {});
+}
+
+function renderSourceStrip(bySource) {
+  const strip = document.getElementById('b1-source-strip');
+  const sources = [
+    {key:'churn_logic', label:'6mo Churn', color:'#8B5CF6'},
+    {key:'churn_feb', label:'Churn Feb', color:'#3B82F6'},
+    {key:'cancelled_calling', label:'Cancelled Calling', color:'#F97316'},
+    {key:'customer_complaint', label:'Complaints', color:'#EF4444'},
+    {key:'rohit_call_tagging', label:'Rohit Calling', color:'#F59E0B'},
+    {key:'manual_report', label:'Manual', color:'#10B981'},
+  ];
+  strip.innerHTML = sources.map(s => {
+    const val = bySource[s.key];
+    const count = val !== undefined ? val : '—';
+    const isError = typeof count === 'string' && count.toString().startsWith('error');
+    const isZero = count === 0;
+    const dotColor = isError ? '#EF4444' : isZero ? '#D1D5DB' : '#10B981';
+    const textColor = isError ? '#EF4444' : isZero ? 'var(--text-3)' : 'var(--text)';
+    const title = isError ? count : `${s.label}: ${count} case(s)`;
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:white;border:1.5px solid ${isError?'#FCA5A5':s.color}22;border-radius:8px;font-size:12px;cursor:default" title="${title}">
+      <span style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0"></span>
+      <span style="font-weight:600;color:${s.color}">${s.label}</span>
+      <span style="font-weight:700;color:${textColor}">${isError ? 'ERR' : count}</span>
+    </div>`;
+  }).join('');
 }
 
 async function loadB1Filters() {
