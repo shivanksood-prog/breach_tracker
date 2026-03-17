@@ -253,11 +253,9 @@ try:
             app.logger.info(f"B1 sync (churn_feb): {len(cases)} cases")
         except Exception as e:
             app.logger.error(f"B1 sync churn_feb error: {e}")
-        # B1 — Source 3: Rohit Call Tagging (no disintermediation cases yet — TBD filter)
+        # B1 — Source 3: Rohit Call Tagging
         try:
             cases = fetch_rohit_call_tagging_cases()
-            # Filter TBD — skip all until Ops Tagging (P1) value is confirmed
-            cases = []  # No matching cases yet
             for c in cases:
                 partner = (c.get("PARTNER_NAME") or "").strip()
                 email_info = emails.get(partner.lower(), {})
@@ -895,11 +893,26 @@ def breach1_sync():
         except Exception as e:
             source_counts["churn_feb"] = f"error: {e}"
 
-        # Source 3: Rohit Call Tagging (filter TBD — fetch to confirm connector works)
+        # Source 3: Rohit Call Tagging
         try:
-            raw_cases = fetch_rohit_call_tagging_cases()
-            # No disintermediation filter value confirmed yet — report raw count
-            source_counts["rohit_call_tagging"] = f"0 (sheet has {len(raw_cases)} rows, filter TBD)"
+            cases = fetch_rohit_call_tagging_cases()
+            count = 0
+            for c in cases:
+                partner = (c.get("PARTNER_NAME") or "").strip()
+                email_info = emails.get(partner.lower(), {})
+                data = {
+                    "customer_mobile": c.get("MOBILE", ""),
+                    "partner_id": c.get("ACCOUNT_ID", ""),
+                    "call_recording": c.get("RECORDING_URL", ""),
+                    "calling_status": c.get("CALL_STATUS", ""),
+                    "calling_remarks": c.get("TRANSCRIPT", ""),
+                    "partner_name": partner,
+                    "partner_email": email_info.get("email", ""),
+                    "source": "rohit_call_tagging",
+                }
+                _count_and_upsert(data)
+                count += 1
+            source_counts["rohit_call_tagging"] = count
         except Exception as e:
             source_counts["rohit_call_tagging"] = f"error: {e}"
 

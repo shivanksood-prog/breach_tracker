@@ -166,6 +166,7 @@ def init_db():
                 error           TEXT
             );
         """)
+    _migrate()
 
 
 def _migrate():
