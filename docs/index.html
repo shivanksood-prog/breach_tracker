@@ -431,6 +431,7 @@
     <button class="btn btn-outline btn-sm" onclick="showEmailLog()">📋 Email Log</button>
     <button class="btn btn-success btn-sm" onclick="previewEscalation()">📤 Update Google Sheet</button>
     <button class="btn btn-outline btn-sm" onclick="showManualReport()">+ Report Case</button>
+    <button class="btn btn-sm" style="background:#EF4444;color:white" onclick="showPenaltyPanel()">Penalty Actions</button>
     <div class="spacer"></div>
     <span id="b1-sync-status" style="font-size:11px;color:var(--text-3)"></span>
   </div>
@@ -1556,7 +1557,8 @@ async function markB1Action(actionType) {
 
 function showPenaltyPanel() {
   document.getElementById('penaltyPanel').style.display = '';
-  document.getElementById('pp-count').textContent = b1Selected.size;
+  const penCount = b1Selected.size || (Array.isArray(b1Cases) ? b1Cases.filter(c => c.action_type === 'penalty').length : 0);
+  document.getElementById('pp-count').textContent = penCount;
   document.getElementById('penaltyPanel').scrollIntoView({behavior:'smooth'});
 }
 
