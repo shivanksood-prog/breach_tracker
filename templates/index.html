@@ -174,6 +174,7 @@
     .chevron.open { transform: rotate(180deg); }
     .empty-state { text-align: center; padding: 32px; color: var(--text-3); }
     .loading-state { text-align: center; padding: 24px; color: var(--text-3); }
+    .tbl-refreshing { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
     #toast { position: fixed; bottom: 72px; right: 20px; z-index: 1000; background: var(--text); color: white; padding: 11px 18px; border-radius: 9px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,.2); opacity: 0; transform: translateY(8px); transition: all .25s; pointer-events: none; max-width: 340px; }
     #toast.show { opacity: 1; transform: none; }
     #toast.success { background: var(--success); }
@@ -906,6 +907,13 @@ function switchTab(t) {
 }
 
 
+function setRefreshing(ids, on) {
+  (Array.isArray(ids) ? ids : [ids]).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('tbl-refreshing', on);
+  });
+}
+
 async function api(method, path, body) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
   if (body) opts.body = JSON.stringify(body);
@@ -1027,8 +1035,10 @@ async function loadB1Cases() {
   const source = document.getElementById('b1fSource').value;
   const actionType = document.getElementById('b1fAction').value;
   const search = document.getElementById('b1fSearch').value.trim();
+  setRefreshing('b1Body', true);
   b1Cases = await api('GET', `/api/breach1/cases?partner=${encodeURIComponent(partner)}&zone=${encodeURIComponent(zone)}&status=${encodeURIComponent(status)}&email_state=${emailState}&source=${encodeURIComponent(source)}&action_type=${encodeURIComponent(actionType)}&search=${encodeURIComponent(search)}`);
   renderB1Cases();
+  setRefreshing('b1Body', false);
 }
 
 function renderB1Cases() {
@@ -1562,8 +1572,9 @@ async function loadB4Cases() {
   const partner = document.getElementById('b4fPartner').value;
   const emailState = document.getElementById('b4fEmail').value;
   const search = document.getElementById('b4fSearch').value;
+  setRefreshing('b4Body', true);
   b4Cases = await api('GET', `/api/breach4/cases?partner=${encodeURIComponent(partner)}&email_state=${emailState}&search=${encodeURIComponent(search)}`);
-
+  setRefreshing('b4Body', false);
   document.getElementById('b4fCount').textContent = `${b4Cases.length} case(s)`;
   const tbody = document.getElementById('b4Body');
 
@@ -1812,9 +1823,11 @@ function switchB2Sub(sub) {
 }
 
 async function loadCommsTab() {
+  setRefreshing('commsBody', true);
   commsData = await api('GET', '/api/customer-comms');
   if (!Array.isArray(commsData)) commsData = [];
   renderCommsTab();
+  setRefreshing('commsBody', false);
 }
 
 function renderCommsTab() {
@@ -1897,17 +1910,19 @@ async function loadCommsBadge() {
 async function loadVisibility() {
   const head = document.getElementById('visHead');
   const body = document.getElementById('visBody');
-  body.innerHTML = '<tr><td colspan="6" class="loading-state">Loading…</td></tr>';
+  if (!body.querySelector('tr[data-loaded]')) body.innerHTML = '<tr><td colspan="6" class="loading-state">Loading…</td></tr>';
+  setRefreshing('visBody', true);
   const data = await api('GET', '/api/cases/visibility');
-  if (!data || !data.rows || !data.columns) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>'; return; }
+  if (!data || !data.rows || !data.columns) { setRefreshing('visBody', false); body.innerHTML = '<tr><td colspan="6" class="empty-state">No data</td></tr>'; return; }
   head.innerHTML = `<tr><th style="text-align:left">Metric</th>${data.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
   body.innerHTML = data.rows.map(r => {
     const isMoney = r.label.startsWith('Total');
     const isTAT = r.label.includes('TAT');
-    return `<tr><td style="font-weight:600;white-space:nowrap">${r.label}</td>${r.values.map(v =>
+    return `<tr data-loaded="1"><td style="font-weight:600;white-space:nowrap">${r.label}</td>${r.values.map(v =>
       `<td style="text-align:right;font-variant-numeric:tabular-nums">${isMoney ? '₹'+Number(v).toLocaleString('en-IN') : isTAT && typeof v==='number' ? v+'m' : v}</td>`
     ).join('')}</tr>`;
   }).join('');
+  setRefreshing('visBody', false);
 }
 
 // ── Fraud flag ────────────────────────────────────────────────────────────────
@@ -1940,8 +1955,10 @@ async function loadCases() {
   const state  = document.getElementById('fState').value;
   const zone   = document.getElementById('fZone').value;
   const search = document.getElementById('fSearch').value.trim();
+  setRefreshing(['otherBody','installBody'], true);
   cases = await api('GET', `/api/cases?state=${state}&zone=${zone}&search=${encodeURIComponent(search)}`);
   renderCases(cases);
+  setRefreshing(['otherBody','installBody'], false);
 }
 
 async function loadZones() {
