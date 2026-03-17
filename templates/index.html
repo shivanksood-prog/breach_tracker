@@ -881,6 +881,7 @@
   <button class="btn btn-outline btn-sm" onclick="dlBulk('refund')">⬇ Refund CSV</button>
   <button class="btn btn-outline btn-sm" onclick="dlBulk('penalty')">⬇ Penalty Excel</button>
   <button class="btn btn-success btn-sm" onclick="bulkConfirmComms()">✓ Confirm Comms Done</button>
+  <button class="btn btn-sm" style="background:#7C3AED;color:white" onclick="bulkMarkPenaltyDone()">✓ Mark Penalty Done</button>
   <button class="btn btn-outline btn-sm" onclick="clearSelection()">✕ Clear</button>
 </div>
 
@@ -2012,6 +2013,8 @@ function quickActions(c) {
   if (c.state === 'customer_refunded') {
     const link = c.refund_payout_link ? `<a href="${c.refund_payout_link}" target="_blank" class="btn btn-outline btn-xs" onclick="event.stopPropagation()" style="color:var(--pink)">🔗 Payout</a>` : '';
     btns += `${link}<button class="btn btn-success btn-xs" onclick="confirmCommsInline('${c.ticket_id}',event)">✓ Comms Done</button>`;
+  } else if (c.state === 'customer_comms') {
+    btns += `<button class="btn btn-sm" style="background:#7C3AED;color:white;font-size:11px" onclick="markPenaltyDoneInline('${c.ticket_id}',event)">✓ Mark Penalty Done</button>`;
   } else if (c.state === 'partner_penalty') {
     btns += `<span style="font-size:11px;color:var(--success);font-weight:700">✓ Complete</span>`;
   }
@@ -2040,6 +2043,28 @@ async function bulkConfirmComms() {
     if (r.ok) done++;
   }
   toast(`Confirmed comms for ${done} case(s)`, 'success');
+  clearSelection();
+  await refreshAll();
+}
+
+async function markPenaltyDoneInline(tid, evt) {
+  if (evt) evt.stopPropagation();
+  const r = await api('POST', `/api/cases/${tid}/advance`, {state: 'partner_penalty'});
+  if (r.error) { toast(r.error, 'error'); return; }
+  toast('Penalty marked as done', 'success');
+  await refreshAll();
+}
+
+async function bulkMarkPenaltyDone() {
+  const tids = [...selectedCases];
+  if (!tids.length) { toast('No cases selected', 'error'); return; }
+  let done = 0, skipped = 0;
+  for (const tid of tids) {
+    const r = await api('POST', `/api/cases/${tid}/advance`, {state: 'partner_penalty'});
+    if (r.ok) done++; else skipped++;
+  }
+  const msg = skipped ? `Marked ${done} done, ${skipped} skipped (wrong state)` : `Penalty marked done for ${done} case(s)`;
+  toast(msg, done ? 'success' : 'error');
   clearSelection();
   await refreshAll();
 }
