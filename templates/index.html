@@ -351,17 +351,8 @@
     <span id="b1fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
   </div>
 
-  <!-- Cases table -->
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th class="check-col"><input type="checkbox" id="b1-chk-all" onchange="b1SelectAll(this.checked)"/></th>
-        <th>Partner</th><th>Customer Mobile</th><th>Expiry Date</th><th>Zone</th><th>City</th>
-        <th>Risk Score</th><th>Status</th><th>Action</th><th>Email</th>
-      </tr></thead>
-      <tbody id="b1Body"><tr><td colspan="10" class="loading-state">Click "Sync from Sheet" to load cases</td></tr></tbody>
-    </table>
-  </div>
+  <!-- Cases — per-source collapsible sections -->
+  <div id="b1Body"><div class="empty-state">Click "Sync from Sheet" to load cases</div></div>
 
   <!-- Email Composer (hidden by default) -->
   <div id="emailComposer" style="display:none;margin-top:16px">
@@ -1046,7 +1037,7 @@ function renderB1Cases() {
   const cases = Array.isArray(b1Cases) ? b1Cases : [];
   document.getElementById('b1fCount').textContent = cases.length + ' case(s)';
   if (!cases.length) {
-    body.innerHTML = '<tr><td colspan="11"><div class="empty-state">No cases. Click "Sync from Sheet" to import.</div></td></tr>';
+    body.innerHTML = '<div class="empty-state">No cases. Click "Sync from Sheet" to import.</div>';
     return;
   }
   const sourceColors = {
@@ -1054,10 +1045,11 @@ function renderB1Cases() {
     cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
   };
   const sourceLabels = {
-    churn_logic: '6mo Churn Logic', churn_feb: '6mo Churn — Feb', rohit_call_tagging: 'Rohit Call Tagging',
+    churn_logic: '6mo Churn', churn_feb: '6mo Churn', rohit_call_tagging: 'Rohit Call Tagging',
     cancelled_calling: 'Cancelled Calling', customer_complaint: 'Customer Complaints', manual_report: 'Manual Report',
   };
-  const sourceOrder = ['churn_logic','churn_feb','cancelled_calling','customer_complaint','rohit_call_tagging','manual_report'];
+  const sourceOrder = ['churn_logic','churn_feb','rohit_call_tagging','cancelled_calling','customer_complaint','manual_report'];
+
   function actionBadge(c) {
     if (!c.action_type) return '<span style="font-size:11px;color:var(--text-3)">—</span>';
     if (c.action_type === 'warning') {
@@ -1074,77 +1066,170 @@ function renderB1Cases() {
     }
     return '';
   }
-  // Group by source first
+
+  function recordingLink(url) {
+    if (!url) return '—';
+    return `<a href="${url}" target="_blank" style="font-size:11px">Recording</a>`;
+  }
+
+  // Group 6mo sources together under one label
   const bySrc = {};
   cases.forEach(c => {
-    const s = c.source || 'churn_logic';
+    let s = c.source || 'churn_logic';
     if (!bySrc[s]) bySrc[s] = [];
     bySrc[s].push(c);
   });
-  // Sort sources by defined order
-  const sortedSources = Object.keys(bySrc).sort((a,b) => {
-    const ia = sourceOrder.indexOf(a), ib = sourceOrder.indexOf(b);
-    return (ia===-1?99:ia) - (ib===-1?99:ib);
+
+  // Merge churn_logic + churn_feb into a combined '6mo_churn' group for display
+  const churnCases = [...(bySrc['churn_logic']||[]), ...(bySrc['churn_feb']||[])];
+  const displayGroups = {};
+  if (churnCases.length) displayGroups['churn_6mo'] = churnCases;
+  ['rohit_call_tagging','cancelled_calling','customer_complaint','manual_report'].forEach(s => {
+    if (bySrc[s] && bySrc[s].length) displayGroups[s] = bySrc[s];
   });
 
+  const displayColors = {
+    churn_6mo: '#8B5CF6', rohit_call_tagging: '#F59E0B',
+    cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
+  };
+  const displayLabels = {
+    churn_6mo: '6mo Churn', rohit_call_tagging: 'Rohit Call Tagging',
+    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Customer Complaints', manual_report: 'Manual Report',
+  };
+
   let html = '';
-  for (const src of sortedSources) {
-    const srcCases = bySrc[src];
-    const srcColor = sourceColors[src] || '#888';
-    const srcLabel = sourceLabels[src] || src;
+
+  for (const [src, srcCases] of Object.entries(displayGroups)) {
+    const srcColor = displayColors[src] || '#888';
+    const srcLabel = displayLabels[src] || src;
     const srcKey = src.replace(/[^a-zA-Z0-9]/g,'');
 
-    // Source section header
-    html += `<tr class="source-header" onclick="toggleSourceGroup('${srcKey}')" style="cursor:pointer">
-      <td colspan="11" style="padding:0">
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:${srcColor}11;border-left:4px solid ${srcColor}">
-          <span class="day-chevron" id="sch-${srcKey}" style="font-size:11px;color:${srcColor}">▼</span>
-          <span style="font-weight:700;font-size:13px;color:${srcColor}">${srcLabel}</span>
-          <span style="font-size:12px;color:var(--text-3)">${srcCases.length} case(s)</span>
-        </div>
-      </td>
-    </tr>`;
+    // Section header (collapsible card)
+    html += `<div class="b1-source-card" id="b1card-${srcKey}">
+      <div class="b1-source-header" onclick="toggleB1Source('${srcKey}')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 16px;background:${srcColor}11;border-left:4px solid ${srcColor};border-radius:8px 8px 0 0">
+        <span class="day-chevron" id="sch-${srcKey}" style="font-size:11px;color:${srcColor}">▼</span>
+        <span style="font-weight:700;font-size:13px;color:${srcColor}">${srcLabel}</span>
+        <span style="font-size:12px;color:var(--text-3)">${srcCases.length} case(s)</span>
+      </div>
+      <div id="b1src-${srcKey}" class="b1-source-body table-wrap" style="border-radius:0 0 8px 8px;overflow:hidden;margin-bottom:12px">`;
 
-    // Group by partner within source
-    const groups = {};
-    srcCases.forEach(c => {
-      const p = c.partner_name || 'Unknown';
-      if (!groups[p]) groups[p] = [];
-      groups[p].push(c);
-    });
-    for (const [partner, items] of Object.entries(groups).sort(([a],[b])=>a.localeCompare(b))) {
-      const email = items[0]?.partner_email || '';
-      const pKey = srcKey + '_' + partner.replace(/[^a-zA-Z0-9]/g,'');
-      html += `<tr class="partner-header sg-${srcKey}" onclick="togglePartnerGroup('${pKey}')">
-        <td colspan="11"><div class="partner-header-inner">
-          <span class="day-chevron" id="pch-${pKey}">▼</span>
-          <span class="partner-label">${partner}</span>
-          <span class="partner-meta">${items.length} case(s)</span>
-          ${email ? `<span class="partner-email-tag">${email}</span>` : '<span style="font-size:11px;color:#EF4444">No email</span>'}
-        </div></td>
-      </tr>`;
-      items.forEach(c => {
-        const statusClass = c.partner_status === 'TERMINATION' ? 'state-TERMINATION' :
-                             c.partner_status === 'ACTIVE' ? 'state-ACTIVE' : 'state-TEMPORARY';
-        const emailBadge = c.email_state === 'sent'
-          ? '<span class="pill pill-yes">Sent</span>'
-          : '<span class="pill pill-no">Pending</span>';
-        html += `<tr class="pg-${pKey} sg-${srcKey}">
-          <td class="check-col"><input type="checkbox" class="b1-chk" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-          <td style="font-size:12px">${c.partner_name||'—'}</td>
+    // Per-source column layout
+    if (src === 'churn_6mo') {
+      html += `<table><thead><tr>
+        <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
+        <th>#</th><th>Mobile</th><th>Partner</th><th>Zone</th><th>Expiry</th><th>Risk</th><th>Status</th><th>Action</th>
+      </tr></thead><tbody>`;
+      srcCases.forEach(c => {
+        html += `<tr>
+          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+          <td style="font-size:11px;color:var(--text-3)">${c.lng_nas_id||'—'}</td>
           <td>${c.customer_mobile||'—'}</td>
-          <td style="font-size:12px">${c.expiry_dt||'—'}</td>
+          <td style="font-size:12px">${c.partner_name||'—'}</td>
           <td style="font-size:12px">${c.zone||'—'}</td>
-          <td style="font-size:12px">${c.city||'—'}</td>
+          <td style="font-size:12px">${c.expiry_dt||'—'}</td>
           <td><strong>${c.risk_score||'—'}</strong></td>
-          <td><span class="state-badge ${statusClass}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
+          <td><span class="state-badge ${c.partner_status==='TERMINATION'?'state-TERMINATION':c.partner_status==='ACTIVE'?'state-ACTIVE':'state-TEMPORARY'}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
           <td>${actionBadge(c)}</td>
-          <td>${emailBadge}</td>
         </tr>`;
       });
+      html += `</tbody></table>`;
+
+    } else if (src === 'rohit_call_tagging') {
+      html += `<table><thead><tr>
+        <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
+        <th>Mobile</th><th>Account ID</th><th>Call Status</th><th>Ops Tag</th><th>Recording</th><th>Action</th>
+      </tr></thead><tbody>`;
+      srcCases.forEach(c => {
+        html += `<tr>
+          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+          <td>${c.customer_mobile||'—'}</td>
+          <td style="font-size:12px">${c.partner_id||'—'}</td>
+          <td style="font-size:12px">${c.calling_status||'—'}</td>
+          <td style="font-size:12px">${c.calling_remarks||'—'}</td>
+          <td>${recordingLink(c.call_recording)}</td>
+          <td>${actionBadge(c)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+
+    } else if (src === 'cancelled_calling') {
+      html += `<table><thead><tr>
+        <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
+        <th>Mobile</th><th>Partner</th><th>Call Connected</th><th>Bucketing</th><th>Remarks</th><th>Recording</th><th>Action</th>
+      </tr></thead><tbody>`;
+      srcCases.forEach(c => {
+        html += `<tr>
+          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+          <td>${c.customer_mobile||'—'}</td>
+          <td style="font-size:12px">${c.partner_name||'—'}</td>
+          <td style="font-size:12px">${c.connected||'—'}</td>
+          <td style="font-size:12px">${c.calling_status||'—'}</td>
+          <td style="font-size:12px">${c.calling_remarks||'—'}</td>
+          <td>${recordingLink(c.call_recording)}</td>
+          <td>${actionBadge(c)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+
+    } else if (src === 'customer_complaint') {
+      html += `<table><thead><tr>
+        <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
+        <th>Ticket No</th><th>Date</th><th>Customer</th><th>Partner</th><th>Mobile</th><th>Confirmation</th><th>Recording</th><th>Action</th>
+      </tr></thead><tbody>`;
+      srcCases.forEach(c => {
+        html += `<tr>
+          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+          <td style="font-size:12px">${c.lng_nas_id||'—'}</td>
+          <td style="font-size:12px">${c.call_timestamp||'—'}</td>
+          <td style="font-size:12px">${'—'}</td>
+          <td style="font-size:12px">${c.partner_name||'—'}</td>
+          <td>${c.customer_mobile||'—'}</td>
+          <td style="font-size:12px">${c.calling_remarks||'—'}</td>
+          <td>${recordingLink(c.call_recording)}</td>
+          <td>${actionBadge(c)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+
+    } else {
+      // manual_report or unknown
+      html += `<table><thead><tr>
+        <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
+        <th>Date</th><th>Partner</th><th>Mobile</th><th>Report Text</th><th>Action</th>
+      </tr></thead><tbody>`;
+      srcCases.forEach(c => {
+        html += `<tr>
+          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+          <td style="font-size:12px">${c.call_timestamp||'—'}</td>
+          <td style="font-size:12px">${c.partner_name||'—'}</td>
+          <td>${c.customer_mobile||'—'}</td>
+          <td style="font-size:12px">${c.report_text||'—'}</td>
+          <td>${actionBadge(c)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
     }
+
+    html += `</div></div>`;
   }
+
   body.innerHTML = html;
+}
+
+function toggleB1Source(key) {
+  const el = document.getElementById('b1src-'+key);
+  const ch = document.getElementById('sch-'+key);
+  if (!el) return;
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  if (ch) ch.classList.toggle('closed', !hidden);
+}
+
+function b1SelectAllInSource(chkAll, srcKey) {
+  document.querySelectorAll('.b1chk-'+srcKey).forEach(chk => {
+    chk.checked = chkAll.checked;
+    b1HandleChk(chk);
+  });
 }
 
 function togglePartnerGroup(key) {
@@ -1179,7 +1264,6 @@ function b1SelectAll(checked) {
 function b1ClearSelection() {
   b1Selected.clear();
   document.querySelectorAll('.b1-chk').forEach(c => c.checked=false);
-  document.getElementById('b1-chk-all').checked = false;
   updateB1SelBar();
 }
 

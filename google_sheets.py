@@ -72,7 +72,7 @@ def fetch_churn_feb_cases() -> list[dict]:
 
 
 def fetch_rohit_call_tagging_cases() -> list[dict]:
-    """Read rows from Rohit Call Tagging sheet. Filter TBD — no disintermediation cases yet."""
+    """Read rows from Rohit Call Tagging sheet. Filter: Ops Tagging (P1) == 'Disintermediation'."""
     service = _get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=ROHIT_CALL_TAGGING_SHEET_ID,
@@ -86,12 +86,13 @@ def fetch_rohit_call_tagging_cases() -> list[dict]:
     for row in rows[1:]:
         padded = row + [""] * (len(headers) - len(row))
         case = {headers[i]: padded[i] for i in range(len(headers))}
-        cases.append(case)
+        if (case.get("Ops Tagging (P1)") or "").strip().lower() == "disintermediation":
+            cases.append(case)
     return cases
 
 
 def fetch_cancelled_calling_cases() -> list[dict]:
-    """Read rows from Cancelled Cx - Rajan tab. Filter: non-empty Partner Name(if Disintermediation)."""
+    """Read rows from Cancelled Cx - Rajan tab. Filter: Bucketing == 'Disintermediation'."""
     service = _get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=CANCELLED_CALLING_SHEET_ID,
@@ -105,26 +106,32 @@ def fetch_cancelled_calling_cases() -> list[dict]:
     for row in rows[1:]:
         padded = row + [""] * (len(headers) - len(row))
         case = {headers[i]: padded[i] for i in range(len(headers))}
-        cases.append(case)
+        if (case.get("Bucketing") or "").strip().lower() == "disintermediation":
+            cases.append(case)
     return cases
 
 
 def fetch_customer_complaint_cases() -> list[dict]:
-    """Read rows from Customer Complaints Final Raw Data tab."""
+    """Read rows from Customer Complaints Final Raw Data tab.
+    Sheet has a double header: row 0 = section labels, row 1 = actual column names.
+    Filter: Leakage Category == 'disintermediation' (case-insensitive).
+    """
     service = _get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=CUSTOMER_COMPLAINT_SHEET_ID,
         range="'Final Raw Data'!A1:Z5000",
     ).execute()
     rows = result.get("values", [])
-    if len(rows) < 2:
+    if len(rows) < 3:
         return []
-    headers = rows[0]
+    # rows[0] = section labels (skip), rows[1] = actual column headers
+    headers = rows[1]
     cases = []
-    for row in rows[1:]:
+    for row in rows[2:]:
         padded = row + [""] * (len(headers) - len(row))
         case = {headers[i]: padded[i] for i in range(len(headers))}
-        cases.append(case)
+        if (case.get("Leakage Category") or "").strip().lower() == "disintermediation":
+            cases.append(case)
     return cases
 
 

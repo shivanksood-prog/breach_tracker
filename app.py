@@ -257,14 +257,22 @@ try:
         try:
             cases = fetch_rohit_call_tagging_cases()
             for c in cases:
+                mobile = c.get("MOBILE", "")
+                partner_id = c.get("ACCOUNT_ID", "")
+                # Skip rows where both customer_mobile and partner_id are empty
+                if not mobile and not partner_id:
+                    continue
                 partner = (c.get("PARTNER_NAME") or "").strip()
                 email_info = emails.get(partner.lower(), {})
+                ops_tag = (c.get("Ops Tagging (P1)") or "").strip()
+                primary_tag = (c.get("Primary Tags") or "").strip()
+                calling_remarks = f"{ops_tag} | {primary_tag}" if ops_tag or primary_tag else ""
                 data = {
-                    "customer_mobile": c.get("MOBILE", ""),
-                    "partner_id": c.get("ACCOUNT_ID", ""),
+                    "customer_mobile": mobile,
+                    "partner_id": partner_id,
                     "call_recording": c.get("RECORDING_URL", ""),
                     "calling_status": c.get("CALL_STATUS", ""),
-                    "calling_remarks": c.get("TRANSCRIPT", ""),
+                    "calling_remarks": calling_remarks,
                     "partner_name": partner,
                     "partner_email": email_info.get("email", ""),
                     "source": "rohit_call_tagging",
@@ -276,17 +284,20 @@ try:
         # B1 — Source 4: Cancelled Calling
         try:
             cases = fetch_cancelled_calling_cases()
-            # Filter: only rows where Partner Name(if Disintermediation) is non-empty
-            cases = [c for c in cases if (c.get("Partner Name(if Disintermediation)") or "").strip()]
+            # Filter already done in fetch_cancelled_calling_cases (Bucketing == Disintermediation)
             for c in cases:
-                partner = (c.get("Partner Name(if Disintermediation)") or "").strip()
+                partner = (c.get("Partner Name (if Disintermediation)") or "").strip()
                 email_info = emails.get(partner.lower(), {})
                 data = {
                     "customer_mobile": c.get("Mobile", ""),
+                    "lng_nas_id": "",
                     "partner_id": c.get("Latest Partner ID", ""),
                     "partner_name": partner,
                     "call_recording": c.get("Call Recording", ""),
                     "calling_remarks": c.get("Remarks", ""),
+                    "calling_status": c.get("Bucketing", ""),
+                    "report_text": c.get("App Reason", ""),
+                    "connected": c.get("Call connected", ""),
                     "call_timestamp": c.get("Call Date", ""),
                     "partner_email": email_info.get("email", ""),
                     "source": "cancelled_calling",
@@ -298,8 +309,12 @@ try:
         # B1 — Source 5: Customer Complaints
         try:
             cases = fetch_customer_complaint_cases()
-            cases = [c for c in cases if (c.get("Leakage Category") or "").strip().lower() == "disintermediation"]
+            # Filter already done in fetch_customer_complaint_cases (Leakage Category == disintermediation)
             for c in cases:
+                kapture_no = (c.get("Kapture Ticket No.") or "").strip()
+                # Skip test/header rows where Kapture Ticket No. is "1" or non-numeric
+                if kapture_no == "1" or (kapture_no and not kapture_no.replace(".", "").isdigit()):
+                    continue
                 partner = (c.get("Partner name") or "").strip()
                 email_info = emails.get(partner.lower(), {})
                 data = {
@@ -307,6 +322,8 @@ try:
                     "partner_name": partner,
                     "calling_remarks": c.get("Leakage confirmation", ""),
                     "call_recording": c.get("Call Recording proof", ""),
+                    "report_text": c.get("Ticket URL (Comment)", ""),
+                    "lng_nas_id": kapture_no,
                     "partner_email": email_info.get("email", ""),
                     "source": "customer_complaint",
                 }
@@ -898,14 +915,22 @@ def breach1_sync():
             cases = fetch_rohit_call_tagging_cases()
             count = 0
             for c in cases:
+                mobile = c.get("MOBILE", "")
+                partner_id = c.get("ACCOUNT_ID", "")
+                # Skip rows where both customer_mobile and partner_id are empty
+                if not mobile and not partner_id:
+                    continue
                 partner = (c.get("PARTNER_NAME") or "").strip()
                 email_info = emails.get(partner.lower(), {})
+                ops_tag = (c.get("Ops Tagging (P1)") or "").strip()
+                primary_tag = (c.get("Primary Tags") or "").strip()
+                calling_remarks = f"{ops_tag} | {primary_tag}" if ops_tag or primary_tag else ""
                 data = {
-                    "customer_mobile": c.get("MOBILE", ""),
-                    "partner_id": c.get("ACCOUNT_ID", ""),
+                    "customer_mobile": mobile,
+                    "partner_id": partner_id,
                     "call_recording": c.get("RECORDING_URL", ""),
                     "calling_status": c.get("CALL_STATUS", ""),
-                    "calling_remarks": c.get("TRANSCRIPT", ""),
+                    "calling_remarks": calling_remarks,
                     "partner_name": partner,
                     "partner_email": email_info.get("email", ""),
                     "source": "rohit_call_tagging",
@@ -913,21 +938,30 @@ def breach1_sync():
                 _count_and_upsert(data)
                 count += 1
             source_counts["rohit_call_tagging"] = count
+            total_fetched += count
         except Exception as e:
             source_counts["rohit_call_tagging"] = f"error: {e}"
 
         # Source 4: Cancelled Calling
         try:
             cases = fetch_cancelled_calling_cases()
-            cases = [c for c in cases if (c.get("Partner Name(if Disintermediation)") or "").strip()]
+            # Filter already done in fetch_cancelled_calling_cases (Bucketing == Disintermediation)
             for c in cases:
-                partner = (c.get("Partner Name(if Disintermediation)") or "").strip()
+                partner = (c.get("Partner Name (if Disintermediation)") or "").strip()
                 email_info = emails.get(partner.lower(), {})
                 data = {
-                    "customer_mobile": c.get("Mobile", ""), "partner_id": c.get("Latest Partner ID", ""),
-                    "partner_name": partner, "call_recording": c.get("Call Recording", ""),
-                    "calling_remarks": c.get("Remarks", ""), "call_timestamp": c.get("Call Date", ""),
-                    "partner_email": email_info.get("email", ""), "source": "cancelled_calling",
+                    "customer_mobile": c.get("Mobile", ""),
+                    "lng_nas_id": "",
+                    "partner_id": c.get("Latest Partner ID", ""),
+                    "partner_name": partner,
+                    "call_recording": c.get("Call Recording", ""),
+                    "calling_remarks": c.get("Remarks", ""),
+                    "calling_status": c.get("Bucketing", ""),
+                    "report_text": c.get("App Reason", ""),
+                    "connected": c.get("Call connected", ""),
+                    "call_timestamp": c.get("Call Date", ""),
+                    "partner_email": email_info.get("email", ""),
+                    "source": "cancelled_calling",
                 }
                 _count_and_upsert(data)
             source_counts["cancelled_calling"] = len(cases)
@@ -938,19 +972,29 @@ def breach1_sync():
         # Source 5: Customer Complaints
         try:
             cases = fetch_customer_complaint_cases()
-            cases = [c for c in cases if (c.get("Leakage Category") or "").strip().lower() == "disintermediation"]
+            # Filter already done in fetch_customer_complaint_cases (Leakage Category == disintermediation)
+            count = 0
             for c in cases:
+                kapture_no = (c.get("Kapture Ticket No.") or "").strip()
+                # Skip test/header rows where Kapture Ticket No. is "1" or non-numeric
+                if kapture_no == "1" or (kapture_no and not kapture_no.replace(".", "").isdigit()):
+                    continue
                 partner = (c.get("Partner name") or "").strip()
                 email_info = emails.get(partner.lower(), {})
                 data = {
-                    "customer_mobile": c.get("Customer Phone", ""), "partner_name": partner,
+                    "customer_mobile": c.get("Customer Phone", ""),
+                    "partner_name": partner,
                     "calling_remarks": c.get("Leakage confirmation", ""),
                     "call_recording": c.get("Call Recording proof", ""),
-                    "partner_email": email_info.get("email", ""), "source": "customer_complaint",
+                    "report_text": c.get("Ticket URL (Comment)", ""),
+                    "lng_nas_id": kapture_no,
+                    "partner_email": email_info.get("email", ""),
+                    "source": "customer_complaint",
                 }
                 _count_and_upsert(data)
-            source_counts["customer_complaint"] = len(cases)
-            total_fetched += len(cases)
+                count += 1
+            source_counts["customer_complaint"] = count
+            total_fetched += count
         except Exception as e:
             source_counts["customer_complaint"] = f"error: {e}"
 
