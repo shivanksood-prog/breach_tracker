@@ -43,6 +43,24 @@ def _normalize_partner_id(val) -> str:
         return str(val).strip()
 
 
+def _is_precision_lost(val) -> bool:
+    """Return True if val looks like a float-truncated ID (scientific notation or trailing zeros)."""
+    if val is None or val == "":
+        return False
+    s = str(val).strip()
+    # Scientific notation from sheet → precision lost
+    if 'e' in s.lower():
+        return True
+    # Normalized value ending in 4+ zeros → likely truncated (e.g. 281750000000000)
+    try:
+        normalized = str(int(float(s)))
+        if len(normalized) >= 10 and normalized.endswith("0000"):
+            return True
+    except (ValueError, TypeError):
+        pass
+    return False
+
+
 def _fuzzy_partner_lookup(name: str, emails: dict) -> dict:
     """Look up partner info by name with fuzzy matching fallback."""
     if not name:
@@ -280,7 +298,10 @@ try:
                 partner = (c.get("partner_name") or c.get("PARTNER_NAME") or "").strip()
                 email_info = _fuzzy_partner_lookup(partner, emails)
                 raw_pid = c.get("partner_id", "")
-                partner_id = _normalize_partner_id(raw_pid) or _normalize_partner_id(email_info.get("partner_id", ""))
+                email_pid = _normalize_partner_id(email_info.get("partner_id", ""))
+                sheet_pid = _normalize_partner_id(raw_pid)
+                # If sheet ID looks precision-lost (scientific notation → trailing zeros), prefer email directory
+                partner_id = email_pid if _is_precision_lost(raw_pid) else (sheet_pid or email_pid)
                 data = {
                     "lng_nas_id": _normalize_partner_id(c.get("LNG_NAS_ID", "")),
                     "customer_mobile": str(c.get("MOBILE", "") or ""),
@@ -945,7 +966,10 @@ def breach1_sync():
                 partner = (c.get("partner_name") or c.get("PARTNER_NAME") or "").strip()
                 email_info = _fuzzy_partner_lookup(partner, emails)
                 raw_pid = c.get("partner_id", "")
-                partner_id = _normalize_partner_id(raw_pid) or _normalize_partner_id(email_info.get("partner_id", ""))
+                email_pid = _normalize_partner_id(email_info.get("partner_id", ""))
+                sheet_pid = _normalize_partner_id(raw_pid)
+                # If sheet ID looks precision-lost (scientific notation → trailing zeros), prefer email directory
+                partner_id = email_pid if _is_precision_lost(raw_pid) else (sheet_pid or email_pid)
                 data = {
                     "lng_nas_id": _normalize_partner_id(c.get("LNG_NAS_ID", "")),
                     "customer_mobile": str(c.get("MOBILE", "") or ""),
