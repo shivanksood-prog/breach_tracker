@@ -37,6 +37,7 @@ def fetch_disintermediation_cases() -> list[dict]:
     result = service.spreadsheets().values().get(
         spreadsheetId=DISINTERMEDIATION_SHEET_ID,
         range="Sheet1!A1:U5000",
+        valueRenderOption="UNFORMATTED_VALUE",
     ).execute()
     rows = result.get("values", [])
     if len(rows) < 2:
@@ -58,6 +59,7 @@ def fetch_churn_feb_cases() -> list[dict]:
     result = service.spreadsheets().values().get(
         spreadsheetId=DISINTERMEDIATION_SHEET_ID,
         range="Feb!A1:V5000",
+        valueRenderOption="UNFORMATTED_VALUE",
     ).execute()
     rows = result.get("values", [])
     if len(rows) < 2:

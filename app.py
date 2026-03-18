@@ -11,6 +11,53 @@ import sheets_db
 import config
 import actions
 
+def _parse_expiry_date(val) -> str:
+    """Convert Excel serial date or DD-MM-YYYY string to YYYY-MM-DD. Returns '' if unparseable."""
+    if val is None or val == "":
+        return ""
+    from datetime import datetime, timedelta
+    # Excel serial integer (e.g. 46019 → 2025-12-28)
+    try:
+        n = float(str(val).replace(",", ""))
+        if 40000 < n < 60000:  # plausible date serial range (~2009–2064)
+            return (datetime(1899, 12, 30) + timedelta(days=int(n))).strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        pass
+    # Text date DD-MM-YYYY or DD/MM/YYYY
+    s = str(val).strip()
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return s  # store as-is if nothing matched
+
+
+def _normalize_partner_id(val) -> str:
+    """Normalize partner IDs: strip .0, handle scientific notation."""
+    if not val and val != 0:
+        return ""
+    try:
+        return str(int(float(str(val))))
+    except (ValueError, TypeError):
+        return str(val).strip()
+
+
+def _fuzzy_partner_lookup(name: str, emails: dict) -> dict:
+    """Look up partner info by name with fuzzy matching fallback."""
+    if not name:
+        return {}
+    key = name.lower().strip()
+    # Exact match first
+    if key in emails:
+        return emails[key]
+    # Fuzzy match using difflib
+    import difflib
+    matches = difflib.get_close_matches(key, emails.keys(), n=1, cutoff=0.7)
+    if matches:
+        return emails[matches[0]]
+    return {}
+
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}},
      allow_headers=["Content-Type", "Authorization"],
@@ -200,12 +247,14 @@ try:
             cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
             for c in cases:
                 partner = (c.get("PARTNER_NAME") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                email_info = _fuzzy_partner_lookup(partner, emails)
                 data = {
-                    "lng_nas_id": c.get("LNG_NAS_ID", ""), "customer_mobile": c.get("MOBILE", ""),
-                    "expiry_dt": c.get("EXPIRY_DT", ""), "city": c.get("CITY", ""),
-                    "mis_city": c.get("MIS_CITY", ""), "zone": c.get("ZONE", ""),
-                    "partner_name": partner, "tenure": c.get("TENURE", ""),
+                    "lng_nas_id": _normalize_partner_id(c.get("LNG_NAS_ID", "")),
+                    "customer_mobile": str(c.get("MOBILE", "") or ""),
+                    "expiry_dt": _parse_expiry_date(c.get("EXPIRY_DT", "")),
+                    "city": c.get("CITY", ""), "mis_city": c.get("MIS_CITY", ""),
+                    "zone": c.get("ZONE", ""), "partner_name": partner,
+                    "tenure": c.get("TENURE", ""),
                     "r_oct": c.get("R total (Oct)", ""), "r_nov": c.get("R total (Nov)", ""),
                     "r_dec": c.get("R total (Dec)", ""), "r_jan": c.get("R total (Jan)", ""),
                     "risk_score": c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", ""),
@@ -216,6 +265,7 @@ try:
                     "call_timestamp": c.get("Call Timestamp (Date)", ""),
                     "calling_status": c.get("Calling Status", ""),
                     "partner_email": email_info.get("email", ""),
+                    "partner_id": _normalize_partner_id(email_info.get("partner_id", "")),
                     "source": "churn_logic",
                 }
                 db.upsert_breach1_case(data)
@@ -228,23 +278,23 @@ try:
             cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
             for c in cases:
                 partner = (c.get("partner_name") or c.get("PARTNER_NAME") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                email_info = _fuzzy_partner_lookup(partner, emails)
+                raw_pid = c.get("partner_id", "")
+                partner_id = _normalize_partner_id(raw_pid) or _normalize_partner_id(email_info.get("partner_id", ""))
                 data = {
-                    "lng_nas_id": c.get("LNG_NAS_ID", ""),
-                    "customer_mobile": c.get("MOBILE", ""),
-                    "expiry_dt": c.get("EXPIRY_DT", ""),
-                    "city": c.get("CITY", ""),
-                    "zone": c.get("ZONE", ""),
-                    "partner_name": partner,
-                    "partner_id": c.get("partner_id", ""),
-                    "risk_score": c.get("Risk score", c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", "")),
-                    "partner_status": c.get("Status", ""),
-                    "connected": c.get("Connected", ""),
+                    "lng_nas_id": _normalize_partner_id(c.get("LNG_NAS_ID", "")),
+                    "customer_mobile": str(c.get("MOBILE", "") or ""),
+                    "expiry_dt": _parse_expiry_date(c.get("EXPIRY_DT", "")),
+                    "city": c.get("CITY", ""), "mis_city": c.get("MIS_CITY", ""),
+                    "zone": c.get("ZONE", ""), "partner_name": partner,
+                    "partner_id": partner_id,
+                    "risk_score": c.get("Risk score on wallet activity (Jan+Feb) (Scale 0-3)",
+                                        c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", "")),
+                    "partner_status": c.get("Status", ""), "connected": c.get("Connected", ""),
                     "calling_remarks": c.get("Calling Remarks", ""),
                     "disintermediation": c.get("Disintermediation", ""),
-                    "call_recording": c.get("Call Recording", ""),
-                    "called_by": c.get("Called By", ""),
-                    "call_timestamp": c.get("Call Timestamp (Date)", ""),
+                    "call_recording": c.get("Call Recording", ""), "called_by": c.get("Called By", ""),
+                    "call_timestamp": c.get("Call Date", c.get("Call Timestamp (Date)", "")),
                     "calling_status": c.get("Calling Status", ""),
                     "partner_email": email_info.get("email", ""),
                     "source": "churn_feb",
@@ -860,12 +910,14 @@ def breach1_sync():
             cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
             for c in cases:
                 partner = (c.get("PARTNER_NAME") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                email_info = _fuzzy_partner_lookup(partner, emails)
                 data = {
-                    "lng_nas_id": c.get("LNG_NAS_ID", ""), "customer_mobile": c.get("MOBILE", ""),
-                    "expiry_dt": c.get("EXPIRY_DT", ""), "city": c.get("CITY", ""),
-                    "mis_city": c.get("MIS_CITY", ""), "zone": c.get("ZONE", ""),
-                    "partner_name": partner, "tenure": c.get("TENURE", ""),
+                    "lng_nas_id": _normalize_partner_id(c.get("LNG_NAS_ID", "")),
+                    "customer_mobile": str(c.get("MOBILE", "") or ""),
+                    "expiry_dt": _parse_expiry_date(c.get("EXPIRY_DT", "")),
+                    "city": c.get("CITY", ""), "mis_city": c.get("MIS_CITY", ""),
+                    "zone": c.get("ZONE", ""), "partner_name": partner,
+                    "tenure": c.get("TENURE", ""),
                     "r_oct": c.get("R total (Oct)", ""), "r_nov": c.get("R total (Nov)", ""),
                     "r_dec": c.get("R total (Dec)", ""), "r_jan": c.get("R total (Jan)", ""),
                     "risk_score": c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", ""),
@@ -875,7 +927,9 @@ def breach1_sync():
                     "call_recording": c.get("Call Recording", ""), "called_by": c.get("Called By", ""),
                     "call_timestamp": c.get("Call Timestamp (Date)", ""),
                     "calling_status": c.get("Calling Status", ""),
-                    "partner_email": email_info.get("email", ""), "source": "churn_logic",
+                    "partner_email": email_info.get("email", ""),
+                    "partner_id": _normalize_partner_id(email_info.get("partner_id", "")),
+                    "source": "churn_logic",
                 }
                 _count_and_upsert(data)
             source_counts["churn_logic"] = len(cases)
@@ -889,20 +943,26 @@ def breach1_sync():
             cases = [c for c in cases if (c.get("Disintermediation") or "").strip().lower() == "yes"]
             for c in cases:
                 partner = (c.get("partner_name") or c.get("PARTNER_NAME") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                email_info = _fuzzy_partner_lookup(partner, emails)
+                raw_pid = c.get("partner_id", "")
+                partner_id = _normalize_partner_id(raw_pid) or _normalize_partner_id(email_info.get("partner_id", ""))
                 data = {
-                    "lng_nas_id": c.get("LNG_NAS_ID", ""), "customer_mobile": c.get("MOBILE", ""),
-                    "expiry_dt": c.get("EXPIRY_DT", ""), "city": c.get("CITY", ""),
+                    "lng_nas_id": _normalize_partner_id(c.get("LNG_NAS_ID", "")),
+                    "customer_mobile": str(c.get("MOBILE", "") or ""),
+                    "expiry_dt": _parse_expiry_date(c.get("EXPIRY_DT", "")),
+                    "city": c.get("CITY", ""), "mis_city": c.get("MIS_CITY", ""),
                     "zone": c.get("ZONE", ""), "partner_name": partner,
-                    "partner_id": c.get("partner_id", ""),
-                    "risk_score": c.get("Risk score", c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", "")),
+                    "partner_id": partner_id,
+                    "risk_score": c.get("Risk score on wallet activity (Jan+Feb) (Scale 0-3)",
+                                        c.get("Risk score on wallet activity (Dec+Jan) (Scale 0-3)", "")),
                     "partner_status": c.get("Status", ""), "connected": c.get("Connected", ""),
                     "calling_remarks": c.get("Calling Remarks", ""),
                     "disintermediation": c.get("Disintermediation", ""),
                     "call_recording": c.get("Call Recording", ""), "called_by": c.get("Called By", ""),
-                    "call_timestamp": c.get("Call Timestamp (Date)", ""),
+                    "call_timestamp": c.get("Call Date", c.get("Call Timestamp (Date)", "")),
                     "calling_status": c.get("Calling Status", ""),
-                    "partner_email": email_info.get("email", ""), "source": "churn_feb",
+                    "partner_email": email_info.get("email", ""),
+                    "source": "churn_feb",
                 }
                 _count_and_upsert(data)
             source_counts["churn_feb"] = len(cases)

@@ -1546,18 +1546,22 @@ function renderB1Cases() {
     if (src === 'churn_6mo') {
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
-        <th>#</th><th>Mobile</th><th>Partner</th><th>Zone</th><th>Expiry</th><th>Risk</th><th>Status</th><th>Action</th>
+        <th>Mobile</th><th>Partner</th><th>ID</th><th>Zone</th><th>Expiry</th><th>Risk</th><th>Status</th><th>Email</th><th>Action</th>
       </tr></thead><tbody>`;
       srcCases.forEach(c => {
+        const emailBadge = c.partner_email
+          ? `<span title="${c.partner_email}" style="display:inline-flex;align-items:center;gap:4px;background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">✓ Found</span>`
+          : `<span style="display:inline-flex;align-items:center;gap:4px;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">⚠ Missing</span>`;
         html += `<tr>
           <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-          <td style="font-size:11px;color:var(--text-3)">${c.lng_nas_id||'—'}</td>
           <td>${c.customer_mobile||'—'}</td>
           <td style="font-size:12px">${c.partner_name||'—'}</td>
+          <td style="font-size:11px;color:var(--text-3)">${c.partner_id||'—'}</td>
           <td style="font-size:12px">${c.zone||'—'}</td>
-          <td style="font-size:12px">${c.expiry_dt||'—'}</td>
+          <td style="font-size:12px;white-space:nowrap">${c.expiry_dt||'—'}</td>
           <td><strong>${c.risk_score||'—'}</strong></td>
           <td><span class="state-badge ${c.partner_status==='TERMINATION'?'state-TERMINATION':c.partner_status==='ACTIVE'?'state-ACTIVE':'state-TEMPORARY'}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
+          <td>${emailBadge}</td>
           <td>${actionBadge(c)}</td>
         </tr>`;
       });
