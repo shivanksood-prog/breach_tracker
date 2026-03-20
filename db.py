@@ -640,6 +640,76 @@ def get_breach1_summary() -> dict:
         }
 
 
+def get_breach1_dashboard() -> dict:
+    """Dashboard KPIs for B1 tab — acted today, by source, warnings, penalties, pending."""
+    today = now_ist()[:10]  # YYYY-MM-DD
+    with get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM breach1_cases").fetchone()[0]
+        partners = conn.execute("SELECT COUNT(DISTINCT partner_name) FROM breach1_cases").fetchone()[0]
+
+        # Acted today: cases where action_type was set and updated_at is today
+        acted_today = conn.execute(
+            "SELECT COUNT(*) FROM breach1_cases WHERE action_type IS NOT NULL AND updated_at LIKE ?",
+            (today + "%",)
+        ).fetchone()[0]
+
+        # Acted today split by source
+        acted_by_source = {}
+        for row in conn.execute(
+            "SELECT source, COUNT(*) as cnt FROM breach1_cases WHERE action_type IS NOT NULL AND updated_at LIKE ? GROUP BY source",
+            (today + "%",)
+        ).fetchall():
+            acted_by_source[row["source"] or "unknown"] = row["cnt"]
+
+        # Warning sent (all time)
+        warning_sent = conn.execute(
+            "SELECT COUNT(*) FROM breach1_cases WHERE action_type='warning' AND email_state='sent'"
+        ).fetchone()[0]
+
+        # Penalty email sent (all time)
+        penalty_email_sent = conn.execute(
+            "SELECT COUNT(*) FROM breach1_cases WHERE action_type='penalty' AND penalty_state='email_sent'"
+        ).fetchone()[0]
+
+        # Penalty applied (csv_generated, uploaded, or email_sent)
+        penalty_applied = conn.execute(
+            "SELECT COUNT(*) FROM breach1_cases WHERE action_type='penalty' AND penalty_state IN ('csv_generated','uploaded','email_sent')"
+        ).fetchone()[0]
+
+        # Total penalty amount
+        total_penalty = conn.execute(
+            "SELECT COALESCE(SUM(penalty_amount), 0) FROM breach1_cases WHERE action_type='penalty' AND penalty_state IN ('csv_generated','uploaded','email_sent')"
+        ).fetchone()[0]
+
+        # Pending action: no action_type set
+        pending_action = conn.execute(
+            "SELECT COUNT(*) FROM breach1_cases WHERE action_type IS NULL"
+        ).fetchone()[0]
+
+        # By source totals
+        by_source = {}
+        for row in conn.execute(
+            "SELECT source, COUNT(*) as cnt FROM breach1_cases GROUP BY source"
+        ).fetchall():
+            by_source[row["source"] or "unknown"] = row["cnt"]
+
+        # By email state
+        by_email = {}
+        for row in conn.execute(
+            "SELECT email_state, COUNT(*) as cnt FROM breach1_cases GROUP BY email_state"
+        ).fetchall():
+            by_email[row["email_state"]] = row["cnt"]
+
+        return {
+            "total": total, "partners": partners,
+            "acted_today": acted_today, "acted_by_source": acted_by_source,
+            "warning_sent": warning_sent, "penalty_email_sent": penalty_email_sent,
+            "penalty_applied": penalty_applied, "total_penalty": round(total_penalty, 2),
+            "pending_action": pending_action,
+            "by_source": by_source, "by_email_state": by_email,
+        }
+
+
 def get_breach1_partners() -> list:
     with get_conn() as conn:
         rows = conn.execute(

@@ -61,6 +61,21 @@ def _is_precision_lost(val) -> bool:
     return False
 
 
+def _is_date_on_or_after(date_str: str, cutoff: str) -> bool:
+    """Check if date_str (various formats) is on or after cutoff (YYYY-MM-DD)."""
+    from datetime import datetime
+    s = date_str.strip()
+    if not s:
+        return True  # allow empty dates through
+    for fmt in ("%d-%b-%y", "%d-%b-%Y", "%b %d, %Y, %H:%M", "%b %d, %Y",
+                "%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d") >= cutoff
+        except ValueError:
+            continue
+    return True  # if unparseable, allow through
+
+
 def _fuzzy_partner_lookup(name: str, emails: dict) -> dict:
     """Look up partner info by name with fuzzy matching fallback."""
     if not name:
@@ -404,11 +419,14 @@ try:
         # B1 — Source 5: Customer Complaints
         try:
             cases = fetch_customer_complaint_cases()
-            # Filter already done in fetch_customer_complaint_cases (Leakage Category == disintermediation)
+            count = 0
             for c in cases:
                 kapture_no = (c.get("Kapture Ticket No.") or "").strip()
-                # Skip test/header rows where Kapture Ticket No. is "1" or non-numeric
                 if kapture_no == "1" or (kapture_no and not kapture_no.replace(".", "").isdigit()):
+                    continue
+                # Filter: only cases from March 2026 onwards
+                created_date = (c.get("Created Date") or "").strip()
+                if created_date and not _is_date_on_or_after(created_date, "2026-03-01"):
                     continue
                 partner = (c.get("Partner name") or "").strip()
                 email_info = _fuzzy_partner_lookup(partner, emails)
@@ -420,11 +438,13 @@ try:
                     "call_recording": c.get("Call Recording proof", ""),
                     "report_text": c.get("Ticket URL (Comment)", ""),
                     "lng_nas_id": kapture_no,
+                    "call_timestamp": created_date,
                     "partner_email": email_info.get("email", ""),
                     "source": "customer_complaint",
                 }
                 db.upsert_breach1_case(data)
-            app.logger.info(f"B1 sync (customer_complaint): {len(cases)} cases")
+                count += 1
+            app.logger.info(f"B1 sync (customer_complaint): {count} cases")
         except Exception as e:
             app.logger.error(f"B1 sync customer_complaint error: {e}")
         # B4
@@ -1089,8 +1109,10 @@ def breach1_sync():
             count = 0
             for c in cases:
                 kapture_no = (c.get("Kapture Ticket No.") or "").strip()
-                # Skip test/header rows where Kapture Ticket No. is "1" or non-numeric
                 if kapture_no == "1" or (kapture_no and not kapture_no.replace(".", "").isdigit()):
+                    continue
+                created_date = (c.get("Created Date") or "").strip()
+                if created_date and not _is_date_on_or_after(created_date, "2026-03-01"):
                     continue
                 partner = (c.get("Partner name") or "").strip()
                 email_info = _fuzzy_partner_lookup(partner, emails)
@@ -1102,6 +1124,7 @@ def breach1_sync():
                     "call_recording": c.get("Call Recording proof", ""),
                     "report_text": c.get("Ticket URL (Comment)", ""),
                     "lng_nas_id": kapture_no,
+                    "call_timestamp": created_date,
                     "partner_email": email_info.get("email", ""),
                     "source": "customer_complaint",
                 }
@@ -1143,6 +1166,11 @@ def breach1_case(case_id):
 @app.route("/api/breach1/summary")
 def breach1_summary():
     return jsonify(db.get_breach1_summary())
+
+
+@app.route("/api/breach1/dashboard")
+def breach1_dashboard():
+    return jsonify(db.get_breach1_dashboard())
 
 
 @app.route("/api/breach1/partners")
