@@ -374,6 +374,7 @@ try:
                 partner_email = id_info.get("email", "")
                 ops_tag = (c.get("Ops Tagging (P1)") or "").strip()
                 data = {
+                    "lng_nas_id": partner_id,  # use partner_id as dedup key
                     "customer_mobile": mobile,
                     "partner_id": partner_id,
                     "call_recording": c.get("RECORDING_URL", ""),
@@ -1056,6 +1057,7 @@ def breach1_sync():
                 partner_email = id_info.get("email", "")
                 ops_tag = (c.get("Ops Tagging (P1)") or "").strip()
                 data = {
+                    "lng_nas_id": partner_id,  # use partner_id as dedup key
                     "customer_mobile": mobile,
                     "partner_id": partner_id,
                     "call_recording": c.get("RECORDING_URL", ""),

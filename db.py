@@ -221,6 +221,23 @@ def _migrate():
             conn.execute("ALTER TABLE breach1_cases ADD COLUMN cancelled_time TEXT")
         except Exception:
             pass
+        # Clean up Rohit Call Tagging duplicates: keep best row per (source, partner_id, customer_mobile)
+        try:
+            conn.execute("""
+                DELETE FROM breach1_cases WHERE source='rohit_call_tagging' AND id NOT IN (
+                    SELECT MIN(CASE WHEN partner_name != '' AND partner_name IS NOT NULL THEN id ELSE id + 999999 END)
+                    FROM breach1_cases WHERE source='rohit_call_tagging'
+                    GROUP BY customer_mobile, partner_id
+                )
+            """)
+            # Update lng_nas_id to partner_id for rohit cases so UNIQUE key works
+            conn.execute("""
+                UPDATE breach1_cases SET lng_nas_id = partner_id
+                WHERE source='rohit_call_tagging' AND (lng_nas_id IS NULL OR lng_nas_id = '')
+                AND partner_id IS NOT NULL AND partner_id != ''
+            """)
+        except Exception:
+            pass
         # Migrate UNIQUE constraint from (lng_nas_id, customer_mobile) to (source, lng_nas_id, customer_mobile)
         # SQLite autoindexes from inline UNIQUE can't be dropped, so recreate the table
         try:
