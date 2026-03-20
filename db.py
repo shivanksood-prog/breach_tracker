@@ -240,11 +240,13 @@ def _migrate():
             pass
         # Migrate UNIQUE constraint from (lng_nas_id, customer_mobile) to (source, lng_nas_id, customer_mobile)
         # SQLite autoindexes from inline UNIQUE can't be dropped, so recreate the table
+        # Only run if the current UNIQUE doesn't already include 'source'
         try:
-            has_old = conn.execute(
+            idx_cols = [r[2] for r in conn.execute(
                 "PRAGMA index_info('sqlite_autoindex_breach1_cases_1')"
-            ).fetchall()
-            if has_old:
+            ).fetchall()]
+            needs_migration = idx_cols and 'source' not in idx_cols
+            if needs_migration:
                 conn.executescript("""
                     ALTER TABLE breach1_cases RENAME TO breach1_cases_old;
                     CREATE TABLE breach1_cases (
