@@ -520,6 +520,7 @@
     <span>Selected: <span style="color:#A3E635;font-weight:700" id="b1SelCount">0</span></span>
     <button class="btn btn-orange btn-sm" onclick="markB1Action('warning')">Mark as Warning</button>
     <button class="btn btn-sm" style="background:#EF4444;color:white" onclick="markB1Action('penalty')">Mark as Penalty</button>
+    <button class="btn btn-sm" style="background:#6D17CE;color:white" onclick="markB1EmailSentManual()">Mark Email Sent</button>
     <button class="btn btn-sm" style="background:transparent;color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="showEmailComposer()">Compose Warning Email</button>
     <button class="btn btn-sm" style="background:transparent;color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="b1ClearSelection()">Clear</button>
   </div>
@@ -1355,6 +1356,18 @@ async function markB1Action(actionType) {
     if (actionType === 'penalty') showPenaltyPanel();
   } else {
     toast(r.error || 'Failed', 'error');
+  }
+}
+
+async function markB1EmailSentManual() {
+  if (!b1Selected.size) { toast('Select cases first', 'error'); return; }
+  const r = await api('POST', '/api/breach1/mark-email-sent', { case_ids: [...b1Selected] });
+  if (r && r.ok) {
+    toast(`${r.count} case(s) marked as email sent`, 'success');
+    b1ClearSelection();
+    await Promise.all([loadB1Summary(), loadB1Cases()]);
+  } else {
+    toast(r?.error || 'Failed', 'error');
   }
 }
 

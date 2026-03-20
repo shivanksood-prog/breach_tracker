@@ -1344,6 +1344,17 @@ def breach1_set_action():
     return jsonify({"ok": True, "count": len(case_ids), "action_type": action_type})
 
 
+@app.route("/api/breach1/mark-email-sent", methods=["POST"])
+def breach1_mark_email_sent():
+    """Manually mark selected B1 cases as email sent (for emails sent outside the system)."""
+    body = request.json or {}
+    case_ids = body.get("case_ids", [])
+    if not case_ids:
+        return jsonify({"error": "No case_ids provided"}), 400
+    db.mark_breach1_email_sent(case_ids, case_type=1)
+    return jsonify({"ok": True, "count": len(case_ids)})
+
+
 @app.route("/api/breach1/penalty-xlsx", methods=["POST"])
 def breach1_penalty_xlsx():
     """Generate penalty XLSX for B1 cases marked as penalty."""
