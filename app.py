@@ -92,13 +92,16 @@ def _fuzzy_partner_lookup(name: str, emails: dict) -> dict:
     return {}
 
 
-def _build_partner_id_index(emails: dict) -> dict:
-    """Build reverse lookup {partner_id: {email, partner_id, name}} from email directory."""
+def _build_partner_id_index(emails: dict, *extra_email_dicts) -> dict:
+    """Build reverse lookup {partner_id: {email, partner_id, name}} from email directories.
+    Indexes all partner_ids from merged + any extra dicts (e.g. status-only emails)
+    so partners with multiple IDs across sources are all reachable."""
     by_id = {}
-    for name_lower, info in emails.items():
-        pid = (info.get("partner_id") or "").strip()
-        if pid:
-            by_id[pid] = {**info, "name": info.get("name", name_lower)}
+    for source in [emails, *extra_email_dicts]:
+        for name_lower, info in source.items():
+            pid = (info.get("partner_id") or "").strip()
+            if pid and pid not in by_id:
+                by_id[pid] = {**info, "name": info.get("name", name_lower)}
     return by_id
 
 

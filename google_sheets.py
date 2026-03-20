@@ -188,12 +188,8 @@ def fetch_partner_status_emails() -> dict:
 
 
 def get_all_partner_emails() -> dict:
-    """Merge emails from both tabs, Email_dump takes priority."""
-    status_emails = fetch_partner_status_emails()
-    dump_emails = fetch_partner_emails()
-    # Merge: dump overrides status
-    merged = {**status_emails, **dump_emails}
-    return merged
+    """Read partner emails from Partner Status Final tab only."""
+    return fetch_partner_status_emails()
 
 
 def get_existing_escalation_customers() -> set:
