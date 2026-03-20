@@ -1606,7 +1606,7 @@ function renderB1Cases() {
       const cols = 8;
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
-        <th>Mobile</th><th>Partner</th><th>Account ID</th><th>Call Date</th><th>Call Status</th><th>Recording</th><th>Action</th>
+        <th>Mobile</th><th>Partner</th><th>Account ID</th><th>Call Date</th><th>Ops Tagging</th><th>Recording</th><th>Action</th>
       </tr></thead><tbody>`;
       partners.forEach(([pName, pCases]) => {
         const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');

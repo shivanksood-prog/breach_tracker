@@ -76,6 +76,24 @@ def _fuzzy_partner_lookup(name: str, emails: dict) -> dict:
         return emails[matches[0]]
     return {}
 
+
+def _build_partner_id_index(emails: dict) -> dict:
+    """Build reverse lookup {partner_id: {email, partner_id, name}} from email directory."""
+    by_id = {}
+    for name_lower, info in emails.items():
+        pid = (info.get("partner_id") or "").strip()
+        if pid:
+            by_id[pid] = {**info, "name": info.get("name", name_lower)}
+    return by_id
+
+
+def _lookup_by_partner_id(partner_id: str, by_id: dict) -> dict:
+    """Look up partner info by partner_id. Returns {email, partner_id, name} or {}."""
+    if not partner_id:
+        return {}
+    pid = _normalize_partner_id(partner_id)
+    return by_id.get(pid, {})
+
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}},
      allow_headers=["Content-Type", "Authorization"],
@@ -259,6 +277,7 @@ try:
         except Exception as e:
             app.logger.error(f"Partner emails fetch error: {e}")
             emails = {}
+        emails_by_id = _build_partner_id_index(emails)
         # B1 — Source 1: 6mo Churn Sheet1 (existing)
         try:
             cases = fetch_disintermediation_cases()
@@ -330,24 +349,24 @@ try:
             count = 0
             for c in cases:
                 mobile = c.get("TO_NUMBE", "") or c.get("MOBILE", "")
-                partner_id = c.get("ACCOUNT_ID", "")
+                partner_id = _normalize_partner_id(c.get("ACCOUNT_ID", ""))
                 # Skip rows where both customer_mobile and partner_id are empty
                 if not mobile and not partner_id:
                     continue
-                partner = (c.get("PARTNER_NAME") or "").strip()
-                email_info = _fuzzy_partner_lookup(partner, emails)
+                # Look up partner name and email from account_id via email directory
+                id_info = _lookup_by_partner_id(partner_id, emails_by_id)
+                partner = id_info.get("name", "").strip() or (c.get("PARTNER_NAME") or "").strip()
+                partner_email = id_info.get("email", "")
                 ops_tag = (c.get("Ops Tagging (P1)") or "").strip()
-                primary_tag = (c.get("Primary Tags") or "").strip()
-                calling_remarks = f"{ops_tag} | {primary_tag}" if ops_tag or primary_tag else ""
                 data = {
                     "customer_mobile": mobile,
-                    "partner_id": partner_id or _normalize_partner_id(email_info.get("partner_id", "")),
+                    "partner_id": partner_id,
                     "call_recording": c.get("RECORDING_URL", ""),
-                    "calling_status": c.get("CALL_STATUS", ""),
-                    "calling_remarks": calling_remarks,
+                    "calling_status": ops_tag,
+                    "calling_remarks": ops_tag,
                     "call_timestamp": c.get("CREATED_AT", ""),
                     "partner_name": partner,
-                    "partner_email": email_info.get("email", ""),
+                    "partner_email": partner_email,
                     "source": "rohit_call_tagging",
                 }
                 db.upsert_breach1_case(data)
@@ -916,6 +935,7 @@ def breach1_sync():
                                    fetch_churn_feb_cases, fetch_rohit_call_tagging_cases,
                                    fetch_cancelled_calling_cases, fetch_customer_complaint_cases)
         emails = get_all_partner_emails()
+        emails_by_id = _build_partner_id_index(emails)
         total_new = 0
         total_updated = 0
         total_fetched = 0
@@ -1006,24 +1026,24 @@ def breach1_sync():
             count = 0
             for c in cases:
                 mobile = c.get("TO_NUMBE", "") or c.get("MOBILE", "")
-                partner_id = c.get("ACCOUNT_ID", "")
+                partner_id = _normalize_partner_id(c.get("ACCOUNT_ID", ""))
                 # Skip rows where both customer_mobile and partner_id are empty
                 if not mobile and not partner_id:
                     continue
-                partner = (c.get("PARTNER_NAME") or "").strip()
-                email_info = _fuzzy_partner_lookup(partner, emails)
+                # Look up partner name and email from account_id via email directory
+                id_info = _lookup_by_partner_id(partner_id, emails_by_id)
+                partner = id_info.get("name", "").strip() or (c.get("PARTNER_NAME") or "").strip()
+                partner_email = id_info.get("email", "")
                 ops_tag = (c.get("Ops Tagging (P1)") or "").strip()
-                primary_tag = (c.get("Primary Tags") or "").strip()
-                calling_remarks = f"{ops_tag} | {primary_tag}" if ops_tag or primary_tag else ""
                 data = {
                     "customer_mobile": mobile,
-                    "partner_id": partner_id or _normalize_partner_id(email_info.get("partner_id", "")),
+                    "partner_id": partner_id,
                     "call_recording": c.get("RECORDING_URL", ""),
-                    "calling_status": c.get("CALL_STATUS", ""),
-                    "calling_remarks": calling_remarks,
+                    "calling_status": ops_tag,
+                    "calling_remarks": ops_tag,
                     "call_timestamp": c.get("CREATED_AT", ""),
                     "partner_name": partner,
-                    "partner_email": email_info.get("email", ""),
+                    "partner_email": partner_email,
                     "source": "rohit_call_tagging",
                 }
                 _count_and_upsert(data)
