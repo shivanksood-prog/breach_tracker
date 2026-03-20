@@ -127,12 +127,13 @@ def fetch_customer_complaint_cases() -> list[dict]:
     if len(rows) < 3:
         return []
     # rows[0] = section labels (skip), rows[1] = actual column headers
-    headers = rows[1]
+    headers = [h.strip() for h in rows[1]]
+    disintermediation_values = {"disintermediation", "put non-wiom connection", "pitched for non-wiom connection"}
     cases = []
     for row in rows[2:]:
         padded = row + [""] * (len(headers) - len(row))
         case = {headers[i]: padded[i] for i in range(len(headers))}
-        if (case.get("Leakage Category") or "").strip().lower() == "disintermediation":
+        if (case.get("Leakage Category") or "").strip().lower() in disintermediation_values:
             cases.append(case)
     return cases
 
