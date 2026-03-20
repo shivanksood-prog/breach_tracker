@@ -71,7 +71,7 @@ def _fuzzy_partner_lookup(name: str, emails: dict) -> dict:
         return emails[key]
     # Fuzzy match using difflib
     import difflib
-    matches = difflib.get_close_matches(key, emails.keys(), n=1, cutoff=0.7)
+    matches = difflib.get_close_matches(key, emails.keys(), n=1, cutoff=0.95)
     if matches:
         return emails[matches[0]]
     return {}
@@ -327,29 +327,32 @@ try:
         # B1 — Source 3: Rohit Call Tagging
         try:
             cases = fetch_rohit_call_tagging_cases()
+            count = 0
             for c in cases:
-                mobile = c.get("MOBILE", "")
+                mobile = c.get("TO_NUMBE", "") or c.get("MOBILE", "")
                 partner_id = c.get("ACCOUNT_ID", "")
                 # Skip rows where both customer_mobile and partner_id are empty
                 if not mobile and not partner_id:
                     continue
                 partner = (c.get("PARTNER_NAME") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                email_info = _fuzzy_partner_lookup(partner, emails)
                 ops_tag = (c.get("Ops Tagging (P1)") or "").strip()
                 primary_tag = (c.get("Primary Tags") or "").strip()
                 calling_remarks = f"{ops_tag} | {primary_tag}" if ops_tag or primary_tag else ""
                 data = {
                     "customer_mobile": mobile,
-                    "partner_id": partner_id,
+                    "partner_id": partner_id or _normalize_partner_id(email_info.get("partner_id", "")),
                     "call_recording": c.get("RECORDING_URL", ""),
                     "calling_status": c.get("CALL_STATUS", ""),
                     "calling_remarks": calling_remarks,
+                    "call_timestamp": c.get("CREATED_AT", ""),
                     "partner_name": partner,
                     "partner_email": email_info.get("email", ""),
                     "source": "rohit_call_tagging",
                 }
                 db.upsert_breach1_case(data)
-            app.logger.info(f"B1 sync (rohit_call_tagging): {len(cases)} cases")
+                count += 1
+            app.logger.info(f"B1 sync (rohit_call_tagging): {count} cases")
         except Exception as e:
             app.logger.error(f"B1 sync rohit_call_tagging error: {e}")
         # B1 — Source 4: Cancelled Calling
@@ -357,12 +360,13 @@ try:
             cases = fetch_cancelled_calling_cases()
             # Filter already done in fetch_cancelled_calling_cases (Bucketing == Disintermediation)
             for c in cases:
-                partner = (c.get("Partner Name (if Disintermediation)") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                partner = (c.get("Partner Name(if Disintermediation)") or c.get("Partner Name (if Disintermediation)") or "").strip()
+                email_info = _fuzzy_partner_lookup(partner, emails)
+                pid = c.get("Latest Partner ID", "") or _normalize_partner_id(email_info.get("partner_id", ""))
                 data = {
                     "customer_mobile": c.get("Mobile", ""),
                     "lng_nas_id": "",
-                    "partner_id": c.get("Latest Partner ID", ""),
+                    "partner_id": pid,
                     "partner_name": partner,
                     "call_recording": c.get("Call Recording", ""),
                     "calling_remarks": c.get("Remarks", ""),
@@ -370,6 +374,7 @@ try:
                     "report_text": c.get("App Reason", ""),
                     "connected": c.get("Call connected", ""),
                     "call_timestamp": c.get("Call Date", ""),
+                    "cancelled_time": c.get("Cancelled Time", ""),
                     "partner_email": email_info.get("email", ""),
                     "source": "cancelled_calling",
                 }
@@ -387,10 +392,11 @@ try:
                 if kapture_no == "1" or (kapture_no and not kapture_no.replace(".", "").isdigit()):
                     continue
                 partner = (c.get("Partner name") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                email_info = _fuzzy_partner_lookup(partner, emails)
                 data = {
                     "customer_mobile": c.get("Customer Phone", ""),
                     "partner_name": partner,
+                    "partner_id": _normalize_partner_id(email_info.get("partner_id", "")),
                     "calling_remarks": c.get("Leakage confirmation", ""),
                     "call_recording": c.get("Call Recording proof", ""),
                     "report_text": c.get("Ticket URL (Comment)", ""),
@@ -999,22 +1005,23 @@ def breach1_sync():
             cases = fetch_rohit_call_tagging_cases()
             count = 0
             for c in cases:
-                mobile = c.get("MOBILE", "")
+                mobile = c.get("TO_NUMBE", "") or c.get("MOBILE", "")
                 partner_id = c.get("ACCOUNT_ID", "")
                 # Skip rows where both customer_mobile and partner_id are empty
                 if not mobile and not partner_id:
                     continue
                 partner = (c.get("PARTNER_NAME") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                email_info = _fuzzy_partner_lookup(partner, emails)
                 ops_tag = (c.get("Ops Tagging (P1)") or "").strip()
                 primary_tag = (c.get("Primary Tags") or "").strip()
                 calling_remarks = f"{ops_tag} | {primary_tag}" if ops_tag or primary_tag else ""
                 data = {
                     "customer_mobile": mobile,
-                    "partner_id": partner_id,
+                    "partner_id": partner_id or _normalize_partner_id(email_info.get("partner_id", "")),
                     "call_recording": c.get("RECORDING_URL", ""),
                     "calling_status": c.get("CALL_STATUS", ""),
                     "calling_remarks": calling_remarks,
+                    "call_timestamp": c.get("CREATED_AT", ""),
                     "partner_name": partner,
                     "partner_email": email_info.get("email", ""),
                     "source": "rohit_call_tagging",
@@ -1031,12 +1038,13 @@ def breach1_sync():
             cases = fetch_cancelled_calling_cases()
             # Filter already done in fetch_cancelled_calling_cases (Bucketing == Disintermediation)
             for c in cases:
-                partner = (c.get("Partner Name (if Disintermediation)") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                partner = (c.get("Partner Name(if Disintermediation)") or c.get("Partner Name (if Disintermediation)") or "").strip()
+                email_info = _fuzzy_partner_lookup(partner, emails)
+                pid = c.get("Latest Partner ID", "") or _normalize_partner_id(email_info.get("partner_id", ""))
                 data = {
                     "customer_mobile": c.get("Mobile", ""),
                     "lng_nas_id": "",
-                    "partner_id": c.get("Latest Partner ID", ""),
+                    "partner_id": pid,
                     "partner_name": partner,
                     "call_recording": c.get("Call Recording", ""),
                     "calling_remarks": c.get("Remarks", ""),
@@ -1044,6 +1052,7 @@ def breach1_sync():
                     "report_text": c.get("App Reason", ""),
                     "connected": c.get("Call connected", ""),
                     "call_timestamp": c.get("Call Date", ""),
+                    "cancelled_time": c.get("Cancelled Time", ""),
                     "partner_email": email_info.get("email", ""),
                     "source": "cancelled_calling",
                 }
@@ -1064,10 +1073,11 @@ def breach1_sync():
                 if kapture_no == "1" or (kapture_no and not kapture_no.replace(".", "").isdigit()):
                     continue
                 partner = (c.get("Partner name") or "").strip()
-                email_info = emails.get(partner.lower(), {})
+                email_info = _fuzzy_partner_lookup(partner, emails)
                 data = {
                     "customer_mobile": c.get("Customer Phone", ""),
                     "partner_name": partner,
+                    "partner_id": _normalize_partner_id(email_info.get("partner_id", "")),
                     "calling_remarks": c.get("Leakage confirmation", ""),
                     "call_recording": c.get("Call Recording proof", ""),
                     "report_text": c.get("Ticket URL (Comment)", ""),

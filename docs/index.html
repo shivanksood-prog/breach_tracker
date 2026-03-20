@@ -861,8 +861,9 @@ async function apiGet(path, params={}) {
   const url = base + path + (qs ? '?' + qs : '');
   try {
     const r = await fetch(url, { headers: authHeaders() });
+    if (!r.ok) { console.warn(`API ${r.status}: ${path}`); return null; }
     return await r.json();
-  } catch(e) { toast('API error: ' + e.message, 'error'); return null; }
+  } catch(e) { console.warn('API error:', path, e.message); return null; }
 }
 
 async function apiPost(path, data={}) {
@@ -874,6 +875,7 @@ async function apiPost(path, data={}) {
       headers: authHeaders(),
       body: JSON.stringify(data),
     });
+    if (!r.ok) { const txt = await r.text(); try { return JSON.parse(txt); } catch(e) { toast('Server error: ' + r.status, 'error'); return null; } }
     return await r.json();
   } catch(e) { toast('API error: ' + e.message, 'error'); return null; }
 }
@@ -887,6 +889,7 @@ async function apiPostFile(path, formData) {
       headers: { 'Authorization': 'Basic ' + btoa(AUTH_USER + ':' + AUTH_PASS) },
       body: formData,
     });
+    if (!r.ok) { const txt = await r.text(); try { return JSON.parse(txt); } catch(e) { toast('Server error: ' + r.status, 'error'); return null; } }
     return await r.json();
   } catch(e) { toast('API error: ' + e.message, 'error'); return null; }
 }
@@ -1389,7 +1392,7 @@ async function syncBreach1() {
 
 async function loadB1Summary() {
   const s = await apiGet('/api/breach1/summary');
-  if (!s) return;
+  if (!s || s.error) return;  // keep old data on failure
   document.getElementById('b1k-total').textContent = s.total ?? '—';
   document.getElementById('b1k-partners').textContent = s.partners ?? '—';
   document.getElementById('b1k-warning').textContent = s.warning_sent ?? '0';
@@ -1459,8 +1462,11 @@ async function loadB1Cases() {
   const search = document.getElementById('b1fSearch').value.trim();
   setRefreshing('b1Body', true);
   const data = await apiGet('/api/breach1/cases', {partner, zone, status, email_state: emailState, source, action_type: actionType, search});
-  b1Cases = Array.isArray(data) ? data : [];
-  renderB1Cases();
+  if (Array.isArray(data)) {
+    b1Cases = data;
+    renderB1Cases();
+  }
+  // On failure (null/error), keep old b1Cases visible
   setRefreshing('b1Body', false);
 }
 
@@ -1472,15 +1478,6 @@ function renderB1Cases() {
     body.innerHTML = '<div class="empty-state">No cases. Click "Sync from Sheet" to import.</div>';
     return;
   }
-  const sourceColors = {
-    churn_logic: '#8B5CF6', churn_feb: '#3B82F6', rohit_call_tagging: '#F59E0B',
-    cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
-  };
-  const sourceLabels = {
-    churn_logic: '6mo Churn', churn_feb: '6mo Churn', rohit_call_tagging: 'Rohit Call Tagging',
-    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Customer Complaints', manual_report: 'Manual Report',
-  };
-  const sourceOrder = ['churn_logic','churn_feb','rohit_call_tagging','cancelled_calling','customer_complaint','manual_report'];
 
   function actionBadge(c) {
     if (!c.action_type) return '<span style="font-size:11px;color:var(--text-3)">—</span>';
@@ -1504,14 +1501,48 @@ function renderB1Cases() {
     return `<a href="${url}" target="_blank" style="font-size:11px">Recording</a>`;
   }
 
-  // Merge churn_logic + churn_feb into a combined '6mo_churn' group for display
+  function emailBadge(c) {
+    return c.partner_email
+      ? `<span title="${c.partner_email}" style="display:inline-flex;align-items:center;gap:4px;background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">Found</span>`
+      : `<span style="display:inline-flex;align-items:center;gap:4px;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">Missing</span>`;
+  }
+
+  // Group by partner within a source section
+  function groupByPartner(srcCases) {
+    const byPartner = {};
+    srcCases.forEach(c => {
+      const p = c.partner_name || '(Unknown)';
+      if (!byPartner[p]) byPartner[p] = [];
+      byPartner[p].push(c);
+    });
+    return Object.entries(byPartner).sort((a,b) => a[0].localeCompare(b[0]));
+  }
+
+  // Render partner header row spanning all columns
+  function partnerHeader(partnerName, partnerCases, srcKey, colSpan) {
+    const pKey = srcKey + '_' + partnerName.replace(/[^a-zA-Z0-9]/g,'_');
+    const email = partnerCases[0]?.partner_email || '';
+    const eBadge = email
+      ? `<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px">${email}</span>`
+      : `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px">No email</span>`;
+    return `<tr class="b1-partner-hdr" style="background:#443152;cursor:pointer" onclick="toggleB1Partner('${pKey}')">
+      <td class="check-col"><input type="checkbox" onchange="b1SelectAllInPartner(this,'${pKey}')" onclick="event.stopPropagation()"/></td>
+      <td colspan="${colSpan-1}" style="padding:6px 10px">
+        <span style="font-weight:700;color:#FAF9FC;font-size:12px">${partnerName}</span>
+        <span style="color:#A7A1B2;font-size:11px;margin-left:8px">${partnerCases.length} case(s)</span>
+        <span style="margin-left:8px">${eBadge}</span>
+        <span class="day-chevron" id="pch-${pKey}" style="float:right;font-size:10px;color:#A7A1B2">▼</span>
+      </td>
+    </tr>`;
+  }
+
+  // Merge churn_logic + churn_feb into combined group
   const bySrc = {};
   cases.forEach(c => {
-    let s = c.source || 'churn_logic';
+    const s = c.source || 'churn_logic';
     if (!bySrc[s]) bySrc[s] = [];
     bySrc[s].push(c);
   });
-
   const churnCases = [...(bySrc['churn_logic']||[]), ...(bySrc['churn_feb']||[])];
   const displayGroups = {};
   if (churnCases.length) displayGroups['churn_6mo'] = churnCases;
@@ -1534,111 +1565,136 @@ function renderB1Cases() {
     const srcColor = displayColors[src] || '#888';
     const srcLabel = displayLabels[src] || src;
     const srcKey = src.replace(/[^a-zA-Z0-9]/g,'');
+    const partners = groupByPartner(srcCases);
 
     html += `<div class="b1-source-card" id="b1card-${srcKey}">
       <div class="b1-source-header" onclick="toggleB1Source('${srcKey}')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 16px;background:${srcColor}11;border-left:4px solid ${srcColor};border-radius:8px 8px 0 0">
         <span class="day-chevron" id="sch-${srcKey}" style="font-size:11px;color:${srcColor}">▼</span>
         <span style="font-weight:700;font-size:13px;color:${srcColor}">${srcLabel}</span>
-        <span style="font-size:12px;color:var(--text-3)">${srcCases.length} case(s)</span>
+        <span style="font-size:12px;color:var(--text-3)">${srcCases.length} case(s) &middot; ${partners.length} partner(s)</span>
       </div>
       <div id="b1src-${srcKey}" class="b1-source-body table-wrap" style="border-radius:0 0 8px 8px;overflow:hidden;margin-bottom:12px">`;
 
     if (src === 'churn_6mo') {
+      const cols = 10;
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
         <th>Mobile</th><th>Partner</th><th>ID</th><th>Zone</th><th>Expiry</th><th>Risk</th><th>Status</th><th>Email</th><th>Action</th>
       </tr></thead><tbody>`;
-      srcCases.forEach(c => {
-        const emailBadge = c.partner_email
-          ? `<span title="${c.partner_email}" style="display:inline-flex;align-items:center;gap:4px;background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">✓ Found</span>`
-          : `<span style="display:inline-flex;align-items:center;gap:4px;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">⚠ Missing</span>`;
-        html += `<tr>
-          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-          <td>${c.customer_mobile||'—'}</td>
-          <td style="font-size:12px">${c.partner_name||'—'}</td>
-          <td style="font-size:11px;color:var(--text-3)">${c.partner_id||'—'}</td>
-          <td style="font-size:12px">${c.zone||'—'}</td>
-          <td style="font-size:12px;white-space:nowrap">${c.expiry_dt||'—'}</td>
-          <td><strong>${c.risk_score||'—'}</strong></td>
-          <td><span class="state-badge ${c.partner_status==='TERMINATION'?'state-TERMINATION':c.partner_status==='ACTIVE'?'state-ACTIVE':'state-TEMPORARY'}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
-          <td>${emailBadge}</td>
-          <td>${actionBadge(c)}</td>
-        </tr>`;
+      partners.forEach(([pName, pCases]) => {
+        const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');
+        html += partnerHeader(pName, pCases, srcKey, cols);
+        pCases.forEach(c => {
+          html += `<tr class="b1p-${pKey}">
+            <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey} b1pchk-${pKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+            <td>${c.customer_mobile||'—'}</td>
+            <td style="font-size:12px">${c.partner_name||'—'}</td>
+            <td style="font-size:11px;color:var(--text-3)">${c.partner_id||'—'}</td>
+            <td style="font-size:12px">${c.zone||'—'}</td>
+            <td style="font-size:12px;white-space:nowrap">${c.expiry_dt||'—'}</td>
+            <td><strong>${c.risk_score||'—'}</strong></td>
+            <td><span class="state-badge ${c.partner_status==='TERMINATION'?'state-TERMINATION':c.partner_status==='ACTIVE'?'state-ACTIVE':'state-TEMPORARY'}"><span class="dot"></span>${c.partner_status||'—'}</span></td>
+            <td>${emailBadge(c)}</td>
+            <td>${actionBadge(c)}</td>
+          </tr>`;
+        });
       });
       html += `</tbody></table>`;
 
     } else if (src === 'rohit_call_tagging') {
+      const cols = 8;
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
-        <th>Mobile</th><th>Account ID</th><th>Call Status</th><th>Ops Tag</th><th>Recording</th><th>Action</th>
+        <th>Mobile</th><th>Partner</th><th>Account ID</th><th>Call Date</th><th>Call Status</th><th>Recording</th><th>Action</th>
       </tr></thead><tbody>`;
-      srcCases.forEach(c => {
-        html += `<tr>
-          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-          <td>${c.customer_mobile||'—'}</td>
-          <td style="font-size:12px">${c.partner_id||'—'}</td>
-          <td style="font-size:12px">${c.calling_status||'—'}</td>
-          <td style="font-size:12px">${c.calling_remarks||'—'}</td>
-          <td>${recordingLink(c.call_recording)}</td>
-          <td>${actionBadge(c)}</td>
-        </tr>`;
+      partners.forEach(([pName, pCases]) => {
+        const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');
+        html += partnerHeader(pName, pCases, srcKey, cols);
+        pCases.forEach(c => {
+          html += `<tr class="b1p-${pKey}">
+            <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey} b1pchk-${pKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+            <td>${c.customer_mobile||'—'}</td>
+            <td style="font-size:12px">${c.partner_name||'—'}</td>
+            <td style="font-size:12px">${c.partner_id||'—'}</td>
+            <td style="font-size:12px">${c.call_timestamp||'—'}</td>
+            <td style="font-size:12px">${c.calling_status||'—'}</td>
+            <td>${recordingLink(c.call_recording)}</td>
+            <td>${actionBadge(c)}</td>
+          </tr>`;
+        });
       });
       html += `</tbody></table>`;
 
     } else if (src === 'cancelled_calling') {
+      const cols = 9;
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
-        <th>Mobile</th><th>Partner</th><th>Call Connected</th><th>Bucketing</th><th>Remarks</th><th>Recording</th><th>Action</th>
+        <th>Mobile</th><th>Partner</th><th>Cancelled Time</th><th>Call Connected</th><th>Remarks</th><th>Recording</th><th>Email</th><th>Action</th>
       </tr></thead><tbody>`;
-      srcCases.forEach(c => {
-        html += `<tr>
-          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-          <td>${c.customer_mobile||'—'}</td>
-          <td style="font-size:12px">${c.partner_name||'—'}</td>
-          <td style="font-size:12px">${c.connected||'—'}</td>
-          <td style="font-size:12px">${c.calling_status||'—'}</td>
-          <td style="font-size:12px">${c.calling_remarks||'—'}</td>
-          <td>${recordingLink(c.call_recording)}</td>
-          <td>${actionBadge(c)}</td>
-        </tr>`;
+      partners.forEach(([pName, pCases]) => {
+        const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');
+        html += partnerHeader(pName, pCases, srcKey, cols);
+        pCases.forEach(c => {
+          html += `<tr class="b1p-${pKey}">
+            <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey} b1pchk-${pKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+            <td>${c.customer_mobile||'—'}</td>
+            <td style="font-size:12px">${c.partner_name||'—'}</td>
+            <td style="font-size:12px">${c.cancelled_time||'—'}</td>
+            <td style="font-size:12px">${c.connected||'—'}</td>
+            <td style="font-size:12px">${c.calling_remarks||'—'}</td>
+            <td>${recordingLink(c.call_recording)}</td>
+            <td>${emailBadge(c)}</td>
+            <td>${actionBadge(c)}</td>
+          </tr>`;
+        });
       });
       html += `</tbody></table>`;
 
     } else if (src === 'customer_complaint') {
+      const cols = 9;
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
-        <th>Ticket No</th><th>Date</th><th>Customer</th><th>Partner</th><th>Mobile</th><th>Confirmation</th><th>Recording</th><th>Action</th>
+        <th>Ticket No</th><th>Date</th><th>Partner</th><th>Mobile</th><th>Confirmation</th><th>Recording</th><th>Email</th><th>Action</th>
       </tr></thead><tbody>`;
-      srcCases.forEach(c => {
-        html += `<tr>
-          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-          <td style="font-size:12px">${c.lng_nas_id||'—'}</td>
-          <td style="font-size:12px">${c.call_timestamp||'—'}</td>
-          <td style="font-size:12px">${'—'}</td>
-          <td style="font-size:12px">${c.partner_name||'—'}</td>
-          <td>${c.customer_mobile||'—'}</td>
-          <td style="font-size:12px">${c.calling_remarks||'—'}</td>
-          <td>${recordingLink(c.call_recording)}</td>
-          <td>${actionBadge(c)}</td>
-        </tr>`;
+      partners.forEach(([pName, pCases]) => {
+        const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');
+        html += partnerHeader(pName, pCases, srcKey, cols);
+        pCases.forEach(c => {
+          html += `<tr class="b1p-${pKey}">
+            <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey} b1pchk-${pKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+            <td style="font-size:12px">${c.lng_nas_id||'—'}</td>
+            <td style="font-size:12px">${c.call_timestamp||'—'}</td>
+            <td style="font-size:12px">${c.partner_name||'—'}</td>
+            <td>${c.customer_mobile||'—'}</td>
+            <td style="font-size:12px">${c.calling_remarks||'—'}</td>
+            <td>${recordingLink(c.call_recording)}</td>
+            <td>${emailBadge(c)}</td>
+            <td>${actionBadge(c)}</td>
+          </tr>`;
+        });
       });
       html += `</tbody></table>`;
 
     } else {
       // manual_report or unknown
+      const cols = 6;
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
         <th>Date</th><th>Partner</th><th>Mobile</th><th>Report Text</th><th>Action</th>
       </tr></thead><tbody>`;
-      srcCases.forEach(c => {
-        html += `<tr>
-          <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-          <td style="font-size:12px">${c.call_timestamp||'—'}</td>
-          <td style="font-size:12px">${c.partner_name||'—'}</td>
-          <td>${c.customer_mobile||'—'}</td>
-          <td style="font-size:12px">${c.report_text||'—'}</td>
-          <td>${actionBadge(c)}</td>
-        </tr>`;
+      partners.forEach(([pName, pCases]) => {
+        const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');
+        html += partnerHeader(pName, pCases, srcKey, cols);
+        pCases.forEach(c => {
+          html += `<tr class="b1p-${pKey}">
+            <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey} b1pchk-${pKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+            <td style="font-size:12px">${c.call_timestamp||'—'}</td>
+            <td style="font-size:12px">${c.partner_name||'—'}</td>
+            <td>${c.customer_mobile||'—'}</td>
+            <td style="font-size:12px">${c.report_text||'—'}</td>
+            <td>${actionBadge(c)}</td>
+          </tr>`;
+        });
       });
       html += `</tbody></table>`;
     }
@@ -1660,6 +1716,22 @@ function toggleB1Source(key) {
 
 function b1SelectAllInSource(chkAll, srcKey) {
   document.querySelectorAll('.b1chk-'+srcKey).forEach(chk => {
+    chk.checked = chkAll.checked;
+    b1HandleChk(chk);
+  });
+}
+
+function toggleB1Partner(pKey) {
+  const rows = document.querySelectorAll('.b1p-'+pKey);
+  const ch = document.getElementById('pch-'+pKey);
+  if (!rows.length) return;
+  const hidden = rows[0].style.display === 'none';
+  rows.forEach(r => r.style.display = hidden ? '' : 'none');
+  if (ch) ch.classList.toggle('closed', !hidden);
+}
+
+function b1SelectAllInPartner(chkAll, pKey) {
+  document.querySelectorAll('.b1pchk-'+pKey).forEach(chk => {
     chk.checked = chkAll.checked;
     b1HandleChk(chk);
   });

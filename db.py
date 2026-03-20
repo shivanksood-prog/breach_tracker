@@ -217,6 +217,57 @@ def _migrate():
             conn.execute("ALTER TABLE breach1_cases ADD COLUMN penalty_email_sent_at TEXT")
         except Exception:
             pass
+        try:
+            conn.execute("ALTER TABLE breach1_cases ADD COLUMN cancelled_time TEXT")
+        except Exception:
+            pass
+        # Migrate UNIQUE constraint from (lng_nas_id, customer_mobile) to (source, lng_nas_id, customer_mobile)
+        # SQLite autoindexes from inline UNIQUE can't be dropped, so recreate the table
+        try:
+            has_old = conn.execute(
+                "PRAGMA index_info('sqlite_autoindex_breach1_cases_1')"
+            ).fetchall()
+            if has_old:
+                conn.executescript("""
+                    ALTER TABLE breach1_cases RENAME TO breach1_cases_old;
+                    CREATE TABLE breach1_cases (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        lng_nas_id TEXT, customer_mobile TEXT, expiry_dt TEXT,
+                        city TEXT, mis_city TEXT, zone TEXT, partner_name TEXT,
+                        tenure TEXT, r_oct TEXT, r_nov TEXT, r_dec TEXT, r_jan TEXT,
+                        risk_score TEXT, partner_status TEXT, connected TEXT,
+                        calling_remarks TEXT, disintermediation TEXT, call_recording TEXT,
+                        called_by TEXT, call_timestamp TEXT, calling_status TEXT,
+                        partner_email TEXT,
+                        email_state TEXT NOT NULL DEFAULT 'pending',
+                        email_sent_at TEXT, email_case_type INTEGER,
+                        created_at TEXT DEFAULT (datetime('now')),
+                        updated_at TEXT DEFAULT (datetime('now')),
+                        source TEXT DEFAULT 'churn_logic', partner_id TEXT,
+                        report_text TEXT, reported_by TEXT, action_type TEXT,
+                        penalty_state TEXT DEFAULT 'none',
+                        penalty_amount REAL DEFAULT -2000,
+                        penalty_email_state TEXT DEFAULT 'pending',
+                        penalty_email_sent_at TEXT, cancelled_time TEXT,
+                        UNIQUE(source, lng_nas_id, customer_mobile)
+                    );
+                    INSERT INTO breach1_cases SELECT
+                        id, lng_nas_id, customer_mobile, expiry_dt,
+                        city, mis_city, zone, partner_name,
+                        tenure, r_oct, r_nov, r_dec, r_jan,
+                        risk_score, partner_status, connected,
+                        calling_remarks, disintermediation, call_recording,
+                        called_by, call_timestamp, calling_status,
+                        partner_email, email_state, email_sent_at, email_case_type,
+                        created_at, updated_at, source, partner_id,
+                        report_text, reported_by, action_type,
+                        penalty_state, penalty_amount, penalty_email_state,
+                        penalty_email_sent_at, NULL
+                    FROM breach1_cases_old;
+                    DROP TABLE breach1_cases_old;
+                """)
+        except Exception:
+            pass
 
 
 def now_ist() -> str:
@@ -481,11 +532,12 @@ def get_all_zones() -> list:
 
 def upsert_breach1_case(data: dict):
     with get_conn() as conn:
+        source = data.get("source", "churn_logic")
         lng = data.get("lng_nas_id", "")
         mob = data.get("customer_mobile", "")
         existing = conn.execute(
-            "SELECT id FROM breach1_cases WHERE lng_nas_id=? AND customer_mobile=?",
-            (lng, mob),
+            "SELECT id FROM breach1_cases WHERE source=? AND lng_nas_id=? AND customer_mobile=?",
+            (source, lng, mob),
         ).fetchone()
         if existing is None:
             cols = ", ".join(data.keys())
@@ -497,9 +549,19 @@ def upsert_breach1_case(data: dict):
                 "r_oct", "r_nov", "r_dec", "r_jan", "risk_score", "partner_status",
                 "connected", "calling_remarks", "disintermediation", "call_recording",
                 "called_by", "call_timestamp", "calling_status", "partner_email",
-                "source", "partner_id", "report_text", "reported_by",
+                "partner_id", "report_text", "reported_by", "cancelled_time",
             }
             updates = {k: v for k, v in data.items() if k in safe_keys}
+            # Never overwrite non-empty values with empty for these columns
+            existing_row = conn.execute(
+                """SELECT partner_email, partner_id, email_state, email_sent_at,
+                          action_type, penalty_state, penalty_email_state, penalty_email_sent_at
+                   FROM breach1_cases WHERE id=?""", (existing["id"],)
+            ).fetchone()
+            # Protect partner_email and partner_id from being blanked
+            for col in ("partner_email", "partner_id"):
+                if not updates.get(col) and existing_row and existing_row[col]:
+                    updates.pop(col, None)
             if updates:
                 updates["updated_at"] = now_ist()
                 set_clause = ", ".join(f"{k} = ?" for k in updates)
