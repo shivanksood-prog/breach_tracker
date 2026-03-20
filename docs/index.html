@@ -438,6 +438,12 @@
     <div id="b1-source-strip" style="display:flex;flex-wrap:wrap;gap:8px"></div>
   </div>
 
+  <!-- Source-wise breakdown table -->
+  <div id="b1-source-detail" style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;display:none">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Source-wise Breakdown</div>
+    <div class="table-wrap"><table id="b1-source-detail-table" style="font-size:12px"><thead></thead><tbody></tbody></table></div>
+  </div>
+
   <!-- Action bar -->
   <div class="action-bar">
     <span class="action-label">Actions</span>
@@ -1428,6 +1434,7 @@ async function loadB1Summary() {
     badge.textContent = pending;
   }
   renderSourceStrip(s.by_source || {});
+  renderSourceDetail(s.source_detail || {});
 }
 
 function renderActedBySource(actedSrc) {
@@ -1449,6 +1456,48 @@ function renderActedBySource(actedSrc) {
       <span style="font-weight:700">${v}</span>
     </div>`;
   }).join('');
+}
+
+function renderSourceDetail(detail) {
+  const container = document.getElementById('b1-source-detail');
+  const table = document.getElementById('b1-source-detail-table');
+  if (!container || !table || !Object.keys(detail).length) {
+    if (container) container.style.display = 'none';
+    return;
+  }
+  container.style.display = '';
+  const sourceLabels = {
+    churn_logic: '6mo Churn', churn_feb: 'Churn Feb', rohit_call_tagging: 'Rohit Calling',
+    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Complaints', manual_report: 'Manual',
+  };
+  const sourceColors = {
+    churn_logic: '#8B5CF6', churn_feb: '#3B82F6', rohit_call_tagging: '#F59E0B',
+    cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
+  };
+  let html = `<thead><tr style="background:var(--card)">
+    <th style="text-align:left;padding:6px 10px">Source</th>
+    <th style="text-align:center;padding:6px 8px">Total</th>
+    <th style="text-align:center;padding:6px 8px">Partners</th>
+    <th style="text-align:center;padding:6px 8px">Pending</th>
+    <th style="text-align:center;padding:6px 8px">Warning Sent</th>
+    <th style="text-align:center;padding:6px 8px">Penalty Sent</th>
+    <th style="text-align:center;padding:6px 8px">Email Sent</th>
+  </tr></thead><tbody>`;
+  for (const [src, d] of Object.entries(detail)) {
+    const label = sourceLabels[src] || src;
+    const color = sourceColors[src] || '#888';
+    html += `<tr>
+      <td style="padding:5px 10px;font-weight:600;color:${color}">${label}</td>
+      <td style="text-align:center;font-weight:700">${d.total}</td>
+      <td style="text-align:center">${d.partners}</td>
+      <td style="text-align:center;color:var(--warning)">${d.pending}</td>
+      <td style="text-align:center;color:var(--info)">${d.warning_sent}</td>
+      <td style="text-align:center;color:var(--pink)">${d.penalty_sent}</td>
+      <td style="text-align:center;color:var(--success)">${d.email_sent}</td>
+    </tr>`;
+  }
+  html += '</tbody>';
+  table.innerHTML = html;
 }
 
 function renderSourceStrip(bySource) {
@@ -1606,15 +1655,17 @@ function renderB1Cases() {
   function partnerHeader(partnerName, partnerCases, srcKey, colSpan) {
     const pKey = srcKey + '_' + partnerName.replace(/[^a-zA-Z0-9]/g,'_');
     const email = partnerCases[0]?.partner_email || '';
+    const safeName = partnerName.replace(/'/g, "\\'");
     const eBadge = email
       ? `<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px">${email}</span>`
       : `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px">No email</span>`;
+    const editBtn = `<button onclick="event.stopPropagation();editPartnerEmail('${safeName}')" style="background:none;border:1px solid #A7A1B2;color:#FAF9FC;font-size:10px;padding:1px 6px;border-radius:6px;cursor:pointer;margin-left:4px" title="Set email manually">Edit</button>`;
     return `<tr class="b1-partner-hdr" style="background:#443152;cursor:pointer" onclick="toggleB1Partner('${pKey}')">
       <td class="check-col"><input type="checkbox" onchange="b1SelectAllInPartner(this,'${pKey}')" onclick="event.stopPropagation()"/></td>
       <td colspan="${colSpan-1}" style="padding:6px 10px">
         <span style="font-weight:700;color:#FAF9FC;font-size:12px">${partnerName}</span>
         <span style="color:#A7A1B2;font-size:11px;margin-left:8px">${partnerCases.length} case(s)</span>
-        <span style="margin-left:8px">${eBadge}</span>
+        <span style="margin-left:8px">${eBadge}</span>${editBtn}
         <span class="day-chevron" id="pch-${pKey}" style="float:right;font-size:10px;color:#A7A1B2">▼</span>
       </td>
     </tr>`;
@@ -1630,17 +1681,33 @@ function renderB1Cases() {
   const churnCases = [...(bySrc['churn_logic']||[]), ...(bySrc['churn_feb']||[])];
   const displayGroups = {};
   if (churnCases.length) displayGroups['churn_6mo'] = churnCases;
-  ['rohit_call_tagging','cancelled_calling','customer_complaint','manual_report'].forEach(s => {
+  ['rohit_call_tagging','cancelled_calling'].forEach(s => {
     if (bySrc[s] && bySrc[s].length) displayGroups[s] = bySrc[s];
   });
+  // Split customer_complaint into Put / Pitch / Other
+  if (bySrc['customer_complaint'] && bySrc['customer_complaint'].length) {
+    const put = bySrc['customer_complaint'].filter(c => (c.calling_status||'').toLowerCase().includes('put'));
+    const pitch = bySrc['customer_complaint'].filter(c => (c.calling_status||'').toLowerCase().includes('pitch'));
+    const other = bySrc['customer_complaint'].filter(c => {
+      const s = (c.calling_status||'').toLowerCase();
+      return !s.includes('put') && !s.includes('pitch');
+    });
+    if (put.length) displayGroups['complaint_put'] = put;
+    if (pitch.length) displayGroups['complaint_pitch'] = pitch;
+    if (other.length) displayGroups['complaint_other'] = other;
+  }
+  if (bySrc['manual_report'] && bySrc['manual_report'].length) displayGroups['manual_report'] = bySrc['manual_report'];
 
   const displayColors = {
     churn_6mo: '#8B5CF6', rohit_call_tagging: '#F59E0B',
-    cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
+    cancelled_calling: '#F97316', complaint_put: '#EF4444', complaint_pitch: '#F97316',
+    complaint_other: '#DC2626', manual_report: '#10B981',
   };
   const displayLabels = {
     churn_6mo: '6mo Churn', rohit_call_tagging: 'Rohit Call Tagging',
-    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Customer Complaints', manual_report: 'Manual Report',
+    cancelled_calling: 'Cancelled Calling', complaint_put: 'Complaints — Put Non-Wiom',
+    complaint_pitch: 'Complaints — Pitched Non-Wiom', complaint_other: 'Complaints — Other',
+    manual_report: 'Manual Report',
   };
 
   let html = '';
@@ -1734,7 +1801,7 @@ function renderB1Cases() {
       });
       html += `</tbody></table>`;
 
-    } else if (src === 'customer_complaint') {
+    } else if (src.startsWith('complaint_')) {
       const cols = 9;
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
@@ -1819,6 +1886,21 @@ function b1SelectAllInPartner(chkAll, pKey) {
     chk.checked = chkAll.checked;
     b1HandleChk(chk);
   });
+}
+
+async function editPartnerEmail(partnerName) {
+  const current = (b1Cases.find(c => c.partner_name === partnerName) || {}).partner_email || '';
+  const email = prompt(`Set email for "${partnerName}":`, current);
+  if (email === null) return;  // cancelled
+  if (!email.trim()) { toast('Email cannot be empty', 'error'); return; }
+  const r = await apiPost('/api/breach1/set-email', { partner_name: partnerName, email: email.trim() });
+  if (r && r.ok) {
+    toast(`Email set for ${r.count} case(s) of ${partnerName}`, 'success');
+    _b1LastJson = '';  // force re-render
+    await loadB1Cases();
+  } else {
+    toast(r?.error || 'Failed', 'error');
+  }
 }
 
 function togglePartnerGroup(key) {

@@ -438,6 +438,7 @@ try:
                     "customer_mobile": c.get("Customer Phone", ""),
                     "partner_name": partner,
                     "partner_id": _normalize_partner_id(email_info.get("partner_id", "")),
+                    "calling_status": (c.get("Leakage Category") or "").strip(),
                     "calling_remarks": c.get("Leakage confirmation", ""),
                     "call_recording": c.get("Call Recording proof", ""),
                     "report_text": c.get("Ticket URL (Comment)", ""),
@@ -1125,6 +1126,7 @@ def breach1_sync():
                     "customer_mobile": c.get("Customer Phone", ""),
                     "partner_name": partner,
                     "partner_id": _normalize_partner_id(email_info.get("partner_id", "")),
+                    "calling_status": (c.get("Leakage Category") or "").strip(),
                     "calling_remarks": c.get("Leakage confirmation", ""),
                     "call_recording": c.get("Call Recording proof", ""),
                     "report_text": c.get("Ticket URL (Comment)", ""),
@@ -1408,6 +1410,24 @@ def breach1_mark_email_sent():
         return jsonify({"error": "No case_ids provided"}), 400
     db.mark_breach1_email_sent(case_ids, case_type=1)
     return jsonify({"ok": True, "count": len(case_ids)})
+
+
+@app.route("/api/breach1/set-email", methods=["POST"])
+def breach1_set_email():
+    """Manually set partner email on B1 cases — by case_ids or by partner_name."""
+    body = request.json or {}
+    email = (body.get("email") or "").strip()
+    if not email:
+        return jsonify({"error": "No email provided"}), 400
+    case_ids = body.get("case_ids", [])
+    partner_name = body.get("partner_name", "").strip()
+    if case_ids:
+        db.set_breach1_partner_email(case_ids, email)
+        return jsonify({"ok": True, "count": len(case_ids)})
+    elif partner_name:
+        count = db.set_breach1_partner_email_by_name(partner_name, email)
+        return jsonify({"ok": True, "count": count, "partner_name": partner_name})
+    return jsonify({"error": "Provide case_ids or partner_name"}), 400
 
 
 @app.route("/api/breach1/penalty-xlsx", methods=["POST"])

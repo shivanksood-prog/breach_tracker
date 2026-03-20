@@ -717,6 +717,26 @@ def get_breach1_dashboard() -> dict:
         ).fetchall():
             by_email[row["email_state"]] = row["cnt"]
 
+        # Source-wise breakdowns
+        source_detail = {}
+        for row in conn.execute("""
+            SELECT source,
+                   COUNT(*) as total,
+                   SUM(CASE WHEN action_type IS NULL THEN 1 ELSE 0 END) as pending,
+                   SUM(CASE WHEN action_type='warning' AND email_state='sent' THEN 1 ELSE 0 END) as warning_sent,
+                   SUM(CASE WHEN action_type='penalty' AND penalty_state='email_sent' THEN 1 ELSE 0 END) as penalty_sent,
+                   SUM(CASE WHEN action_type='penalty' AND penalty_state IN ('csv_generated','uploaded','email_sent') THEN 1 ELSE 0 END) as penalty_applied,
+                   SUM(CASE WHEN email_state='sent' THEN 1 ELSE 0 END) as email_sent,
+                   COUNT(DISTINCT partner_name) as partners
+            FROM breach1_cases GROUP BY source
+        """).fetchall():
+            source_detail[row["source"] or "unknown"] = {
+                "total": row["total"], "pending": row["pending"],
+                "warning_sent": row["warning_sent"], "penalty_sent": row["penalty_sent"],
+                "penalty_applied": row["penalty_applied"], "email_sent": row["email_sent"],
+                "partners": row["partners"],
+            }
+
         return {
             "total": total, "partners": partners,
             "acted_today": acted_today, "acted_by_source": acted_by_source,
@@ -724,7 +744,30 @@ def get_breach1_dashboard() -> dict:
             "penalty_applied": penalty_applied, "total_penalty": round(total_penalty, 2),
             "pending_action": pending_action,
             "by_source": by_source, "by_email_state": by_email,
+            "source_detail": source_detail,
         }
+
+
+def set_breach1_partner_email(case_ids: list, email: str):
+    """Manually set partner_email on selected B1 cases."""
+    ts = now_ist()
+    with get_conn() as conn:
+        for cid in case_ids:
+            conn.execute(
+                "UPDATE breach1_cases SET partner_email=?, updated_at=? WHERE id=?",
+                (email, ts, cid),
+            )
+
+
+def set_breach1_partner_email_by_name(partner_name: str, email: str) -> int:
+    """Set partner_email on all B1 cases matching partner_name. Returns count updated."""
+    ts = now_ist()
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE breach1_cases SET partner_email=?, updated_at=? WHERE partner_name=?",
+            (email, ts, partner_name),
+        )
+        return cur.rowcount
 
 
 def get_breach1_partners() -> list:
