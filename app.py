@@ -1233,6 +1233,8 @@ def breach1_send_email():
         if "PHONE_NUMBER_FIRST4" in selected_vars and not vars_filled.get("PHONE_NUMBER_FIRST4"):
             mobile = case.get("customer_mobile", "")
             vars_filled["PHONE_NUMBER_FIRST4"] = mobile[:4] if len(mobile) >= 4 else mobile
+        if "CALL_DATE" in selected_vars and not vars_filled.get("CALL_DATE"):
+            vars_filled["CALL_DATE"] = case.get("call_timestamp", "")
 
         rendered = render_email(language, selected_vars, vars_filled)
         recipient = test_email if is_test else (case.get("partner_email") or "")

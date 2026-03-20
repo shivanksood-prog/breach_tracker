@@ -2079,7 +2079,7 @@ function renderVarInputs() {
   grid.innerHTML = '';
   for (const key of b1SelectedVars) {
     const info = b1TemplateInfo.proof_variables[key];
-    const autoFill = key === 'LAST_SERVICE_DATE' || key === 'PHONE_NUMBER_FIRST4';
+    const autoFill = key === 'LAST_SERVICE_DATE' || key === 'PHONE_NUMBER_FIRST4' || key === 'CALL_DATE';
     grid.innerHTML += `<div class="fg">
       <label>${info.label}</label>
       <input type="text" id="var-${key}" placeholder="${autoFill ? 'Auto-filled from case data' : 'Enter value…'}"/>

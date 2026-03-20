@@ -44,6 +44,11 @@ FP1_TEMPLATE = {
             "hi": "ग्राहक फ़ोन नंबर: {{PHONE_NUMBER_FIRST4}}XXXXXX",
             "en": "Customer Phone Number: {{PHONE_NUMBER_FIRST4}}XXXXXX",
         },
+        "CALL_DATE": {
+            "label": "Call Date (Rohit Tagging)",
+            "hi": "कॉल दिनांक: {{CALL_DATE}}",
+            "en": "Call Date: {{CALL_DATE}}",
+        },
     },
 }
 
