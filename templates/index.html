@@ -180,21 +180,6 @@
     #toast.success { background: var(--success); }
     #toast.error   { background: #EF4444; }
 
-    /* B1 Sub-tabs & Pipeline */
-    .b1-subtab-bar { display:flex; gap:0; margin-bottom:14px; border-bottom:2px solid var(--border); background:var(--white); border-radius:var(--radius) var(--radius) 0 0; overflow-x:auto; }
-    .b1-subtab-bar .nav-tab { padding:10px 16px; font-size:13px; border-bottom:2px solid transparent; margin-bottom:-2px; }
-    .kpi-card.clickable { cursor:pointer; transition: border-color .15s, box-shadow .15s; }
-    .kpi-card.clickable:hover { border-color: var(--pink-mid); box-shadow: 0 2px 8px rgba(232,35,90,.12); }
-    .source-tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; color:white; white-space:nowrap; }
-    .new-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--pink); }
-    .b1-subtab-badge { font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; margin-left:4px; color:white; }
-    .penalty-step { display:inline-flex; align-items:center; gap:6px; margin-right:16px; font-size:12px; }
-    .penalty-step-num { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
-    .penalty-step-num.done { background:var(--success); color:white; }
-    .penalty-step-num.active { background:var(--pink); color:white; }
-    .penalty-step-num.pending { background:var(--border); color:var(--text-3); }
-    .pipeline-group-hdr { padding:8px 14px; font-size:12px; font-weight:700; color:var(--text-2); background:#FAFAFA; border-bottom:1px solid var(--border); }
-
     /* Customer comms */
     .comms-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; }
     .comms-hdr { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid transparent; }
@@ -305,15 +290,14 @@
   </div>
 
   <!-- Dashboard KPIs -->
-  <div class="kpi-grid" id="b1-kpi" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
-    <div class="kpi-card blue clickable" onclick="toggleNewToday()"><div class="kpi-label">New Today</div><div class="kpi-value" id="b1k-newtoday">—</div><div class="kpi-sub">Click to filter</div></div>
+  <div class="kpi-grid" id="b1-kpi" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
     <div class="kpi-card pink"><div class="kpi-label">Acted Today</div><div class="kpi-value" id="b1k-acted">—</div><div class="kpi-sub" id="b1k-acted-sub">Cases actioned</div></div>
     <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="b1k-total">—</div><div class="kpi-sub">All Sources</div></div>
     <div class="kpi-card org"><div class="kpi-label">Partners</div><div class="kpi-value" id="b1k-partners">—</div><div class="kpi-sub">Unique</div></div>
-    <div class="kpi-card warn clickable" onclick="switchB1Sub('triage')"><div class="kpi-label">Pending Action</div><div class="kpi-value" id="b1k-pending">—</div><div class="kpi-sub">No action yet</div></div>
-    <div class="kpi-card blue clickable" onclick="switchB1Sub('warning')"><div class="kpi-label">Warning Sent</div><div class="kpi-value" id="b1k-warning">—</div><div class="kpi-sub">Email done</div></div>
-    <div class="kpi-card pur clickable" onclick="switchB1Sub('penalty')"><div class="kpi-label">Penalty Email Sent</div><div class="kpi-value" id="b1k-pensent">—</div><div class="kpi-sub">Email done</div></div>
-    <div class="kpi-card ok clickable" onclick="switchB1Sub('penalty')"><div class="kpi-label">Penalty Applied</div><div class="kpi-value" id="b1k-penapplied">—</div><div class="kpi-sub">CSV/Upload/Email</div></div>
+    <div class="kpi-card warn"><div class="kpi-label">Pending Action</div><div class="kpi-value" id="b1k-pending">—</div><div class="kpi-sub">No action yet</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Warning Sent</div><div class="kpi-value" id="b1k-warning">—</div><div class="kpi-sub">Email done</div></div>
+    <div class="kpi-card pur"><div class="kpi-label">Penalty Email Sent</div><div class="kpi-value" id="b1k-pensent">—</div><div class="kpi-sub">Email done</div></div>
+    <div class="kpi-card ok"><div class="kpi-label">Penalty Applied</div><div class="kpi-value" id="b1k-penapplied">—</div><div class="kpi-sub">CSV/Upload/Email</div></div>
     <div class="kpi-card gray"><div class="kpi-label">Total Penalty</div><div class="kpi-value" id="b1k-penamount">—</div><div class="kpi-sub">Amount</div></div>
   </div>
 
@@ -348,77 +332,41 @@
     <span id="b1-sync-status" style="font-size:11px;color:var(--text-3)"></span>
   </div>
 
-  <!-- Sub-tab bar -->
-  <div class="b1-subtab-bar" id="b1-subtabs">
-    <div class="nav-tab active" id="b1sub-triage-tab" onclick="switchB1Sub('triage')">Needs Triage <span id="b1sub-triage-badge" class="b1-subtab-badge" style="display:none"></span></div>
-    <div class="nav-tab" id="b1sub-warning-tab" onclick="switchB1Sub('warning')">Warning <span id="b1sub-warning-badge" class="b1-subtab-badge" style="display:none"></span></div>
-    <div class="nav-tab" id="b1sub-penalty-tab" onclick="switchB1Sub('penalty')">Penalty <span id="b1sub-penalty-badge" class="b1-subtab-badge" style="display:none"></span></div>
-    <div class="nav-tab" id="b1sub-all-tab" onclick="switchB1Sub('all')">All Cases</div>
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <select id="b1fPartner" onchange="loadB1Cases()"><option value="all">All Partners</option></select>
+    <select id="b1fZone" onchange="loadB1Cases()"><option value="all">All Zones</option></select>
+    <select id="b1fStatus" onchange="loadB1Cases()">
+      <option value="all">All Statuses</option>
+      <option value="TERMINATION">Termination</option>
+      <option value="TEMPORARY SUSPENSION">Temp Suspension</option>
+      <option value="ACTIVE">Active</option>
+    </select>
+    <select id="b1fEmail" onchange="loadB1Cases()">
+      <option value="all">All Email States</option>
+      <option value="pending">Pending</option>
+      <option value="sent">Sent</option>
+    </select>
+    <select id="b1fSource" onchange="loadB1Cases()">
+      <option value="all">All Sources</option>
+      <option value="churn_logic">6mo Churn</option>
+      <option value="churn_feb">Churn Feb</option>
+      <option value="rohit_call_tagging">Rohit Calling</option>
+      <option value="cancelled_calling">Cancelled Calling</option>
+      <option value="customer_complaint">Customer Complaints</option>
+      <option value="manual_report">Manual Report</option>
+    </select>
+    <select id="b1fAction" onchange="loadB1Cases()">
+      <option value="all">All Actions</option>
+      <option value="warning">Warning</option>
+      <option value="penalty">Penalty</option>
+    </select>
+    <input type="search" id="b1fSearch" placeholder="Search mobile, partner…" oninput="loadB1Cases()"/>
+    <span id="b1fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
   </div>
 
-  <!-- Pipeline filter bar (triage/warning/penalty) -->
-  <div class="filter-bar" id="b1-pipeline-filters">
-    <select id="b1pfPartner" onchange="renderB1Pipeline()"><option value="all">All Partners</option></select>
-    <select id="b1pfZone" onchange="renderB1Pipeline()"><option value="all">All Zones</option></select>
-    <input type="search" id="b1pfSearch" placeholder="Search mobile, partner…" oninput="renderB1Pipeline()"/>
-    <button class="btn btn-outline btn-sm" id="b1fNewToday" onclick="toggleNewToday()">New Today</button>
-    <span id="b1pfCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
-  </div>
-
-  <!-- Sub-tab: Needs Triage -->
-  <div id="b1sub-triage">
-    <div id="b1TriageBody"><div class="empty-state">Click "Sync from Sheet" to load cases</div></div>
-  </div>
-
-  <!-- Sub-tab: Warning -->
-  <div id="b1sub-warning" style="display:none">
-    <div id="b1WarningBody"><div class="empty-state">No warning cases</div></div>
-  </div>
-
-  <!-- Sub-tab: Penalty (includes inline penalty panel) -->
-  <div id="b1sub-penalty" style="display:none">
-    <div id="b1PenaltyBody"><div class="empty-state">No penalty cases</div></div>
-    <!-- Penalty panel is always visible when this sub-tab is active -->
-  </div>
-
-  <!-- Sub-tab: All Cases (source-grouped, original view) -->
-  <div id="b1sub-all" style="display:none">
-    <!-- Full filter bar for All Cases -->
-    <div class="filter-bar" id="b1-all-filters">
-      <select id="b1fPartner" onchange="loadB1Cases()"><option value="all">All Partners</option></select>
-      <select id="b1fZone" onchange="loadB1Cases()"><option value="all">All Zones</option></select>
-      <select id="b1fStatus" onchange="loadB1Cases()">
-        <option value="all">All Statuses</option>
-        <option value="TERMINATION">Termination</option>
-        <option value="TEMPORARY SUSPENSION">Temp Suspension</option>
-        <option value="ACTIVE">Active</option>
-      </select>
-      <select id="b1fEmail" onchange="loadB1Cases()">
-        <option value="all">All Email States</option>
-        <option value="pending">Pending</option>
-        <option value="sent">Sent</option>
-      </select>
-      <select id="b1fSource" onchange="loadB1Cases()">
-        <option value="all">All Sources</option>
-        <option value="churn_logic">6mo Churn</option>
-        <option value="churn_feb">Churn Feb</option>
-        <option value="rohit_call_tagging">Rohit Calling</option>
-        <option value="cancelled_calling">Cancelled Calling</option>
-        <option value="customer_complaint">Customer Complaints</option>
-        <option value="cx_churn_px_interaction">Churn Px Interaction</option>
-        <option value="cx_churn_no_tickets">Churn No Tickets</option>
-        <option value="manual_report">Manual Report</option>
-      </select>
-      <select id="b1fAction" onchange="loadB1Cases()">
-        <option value="all">All Actions</option>
-        <option value="warning">Warning</option>
-        <option value="penalty">Penalty</option>
-      </select>
-      <input type="search" id="b1fSearch" placeholder="Search mobile, partner…" oninput="loadB1Cases()"/>
-      <span id="b1fCount" style="font-size:12px;color:var(--text-3);margin-left:auto"></span>
-    </div>
-    <div id="b1Body"><div class="empty-state">Click "Sync from Sheet" to load cases</div></div>
-  </div>
+  <!-- Cases — per-source collapsible sections -->
+  <div id="b1Body"><div class="empty-state">Click "Sync from Sheet" to load cases</div></div>
 
   <!-- Email Composer (hidden by default) -->
   <div id="emailComposer" style="display:none;margin-top:16px">
@@ -1015,216 +963,6 @@ function togglePrinciples() {
 // ══════════════════════════════════════════════════════════════════════════════
 let b1Cases = [];
 let b1Selected = new Set();
-let b1CurrentSub = 'triage';
-let b1NewTodayFilter = false;
-
-const b1SourceColors = {
-  churn_logic: '#8B5CF6', churn_feb: '#3B82F6', rohit_call_tagging: '#F59E0B',
-  cancelled_calling: '#F97316', customer_complaint: '#EF4444',
-  cx_churn_px_interaction: '#06B6D4', cx_churn_no_tickets: '#14B8A6', manual_report: '#10B981',
-};
-const b1SourceLabels = {
-  churn_logic: '6mo Churn', churn_feb: 'Churn Feb', rohit_call_tagging: 'Rohit Call',
-  cancelled_calling: 'Cancelled', customer_complaint: 'Complaint',
-  cx_churn_px_interaction: 'Churn Px', cx_churn_no_tickets: 'No Tickets', manual_report: 'Manual',
-};
-
-function sourceTag(source) {
-  const c = b1SourceColors[source] || '#888';
-  const l = b1SourceLabels[source] || source;
-  return `<span class="source-tag" style="background:${c}">${l}</span>`;
-}
-
-function keyDetail(c) {
-  const d = c.calling_remarks || c.risk_score || c.calling_status || c.report_text || c.disintermediation || '';
-  if (!d) return '—';
-  return d.length > 80 ? d.slice(0, 80) + '…' : d;
-}
-
-function switchB1Sub(sub) {
-  b1CurrentSub = sub;
-  ['triage','warning','penalty','all'].forEach(s => {
-    const tab = document.getElementById('b1sub-'+s+'-tab');
-    const pane = document.getElementById('b1sub-'+s);
-    if (tab) tab.classList.toggle('active', s === sub);
-    if (pane) pane.style.display = s === sub ? '' : 'none';
-  });
-  // Show/hide appropriate filter bars
-  const mainFilters = document.getElementById('b1-pipeline-filters');
-  const allFilters = document.getElementById('b1-all-filters');
-  if (mainFilters) mainFilters.style.display = sub === 'all' ? 'none' : '';
-  if (allFilters) allFilters.style.display = sub === 'all' ? '' : 'none';
-  renderB1Pipeline();
-}
-
-function toggleNewToday() {
-  b1NewTodayFilter = !b1NewTodayFilter;
-  const btn = document.getElementById('b1fNewToday');
-  if (btn) {
-    btn.classList.toggle('btn-primary', b1NewTodayFilter);
-    btn.classList.toggle('btn-outline', !b1NewTodayFilter);
-    btn.style.color = b1NewTodayFilter ? 'white' : '';
-  }
-  renderB1Pipeline();
-}
-
-function updateB1SubBadges() {
-  const cases = Array.isArray(b1Cases) ? b1Cases : [];
-  const triage = cases.filter(c => !c.action_type).length;
-  const warning = cases.filter(c => c.action_type === 'warning').length;
-  const penalty = cases.filter(c => c.action_type === 'penalty').length;
-  const todayStr = new Date().toISOString().slice(0,10);
-  const newToday = cases.filter(c => c.created_at && c.created_at.startsWith(todayStr)).length;
-
-  function setBadge(id, count, color) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = count || '';
-    el.style.background = count > 0 ? color : 'transparent';
-    el.style.display = count > 0 ? 'inline-block' : 'none';
-  }
-  setBadge('b1sub-triage-badge', triage, 'var(--warning)');
-  setBadge('b1sub-warning-badge', warning, 'var(--info)');
-  setBadge('b1sub-penalty-badge', penalty, 'var(--pink)');
-  const ntEl = document.getElementById('b1k-newtoday');
-  if (ntEl) ntEl.textContent = newToday;
-}
-
-function renderB1Pipeline() {
-  if (b1CurrentSub === 'all') return; // "All Cases" uses renderB1Cases()
-  const cases = Array.isArray(b1Cases) ? b1Cases : [];
-  const todayStr = new Date().toISOString().slice(0,10);
-
-  // Filter by sub-tab
-  let filtered;
-  if (b1CurrentSub === 'triage') filtered = cases.filter(c => !c.action_type);
-  else if (b1CurrentSub === 'warning') filtered = cases.filter(c => c.action_type === 'warning');
-  else if (b1CurrentSub === 'penalty') filtered = cases.filter(c => c.action_type === 'penalty');
-  else filtered = cases;
-
-  // Apply partner/zone/search from pipeline filters
-  const pf = document.getElementById('b1pfPartner');
-  const zf = document.getElementById('b1pfZone');
-  const sf = document.getElementById('b1pfSearch');
-  if (pf && pf.value !== 'all') filtered = filtered.filter(c => c.partner_name === pf.value);
-  if (zf && zf.value !== 'all') filtered = filtered.filter(c => (c.zone||'').toLowerCase().includes(zf.value.toLowerCase()));
-  if (sf && sf.value.trim()) {
-    const q = sf.value.trim().toLowerCase();
-    filtered = filtered.filter(c => (c.customer_mobile||'').includes(q) || (c.partner_name||'').toLowerCase().includes(q) || (c.partner_id||'').includes(q));
-  }
-
-  // New today filter
-  if (b1NewTodayFilter) filtered = filtered.filter(c => c.created_at && c.created_at.startsWith(todayStr));
-
-  // Sort newest first
-  filtered.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-
-  const bodyId = b1CurrentSub === 'triage' ? 'b1TriageBody' : b1CurrentSub === 'warning' ? 'b1WarningBody' : 'b1PenaltyBody';
-  const body = document.getElementById(bodyId);
-  if (!body) return;
-
-  if (filtered.length === 0) {
-    body.innerHTML = `<div class="empty-state">No cases in this view</div>`;
-    return;
-  }
-
-  // Helper: email badge (reuse inline)
-  function eBadge(c) {
-    return c.partner_email ? `<span class="pill pill-yes" style="font-size:10px">Found</span>` : `<span class="pill pill-no" style="font-size:10px">Missing</span>`;
-  }
-  // Helper: action badge
-  function aBadge(c) {
-    if (!c.action_type) return `<span style="font-size:11px;color:var(--text-3)">—</span>`;
-    if (c.action_type === 'warning') {
-      if (c.email_state === 'sent') return `<span class="pill pill-yes" style="font-size:10px">Warning Sent</span>`;
-      return `<span class="pill" style="font-size:10px;background:#DBEAFE;color:#1E40AF">Warning</span>`;
-    }
-    if (c.action_type === 'penalty') {
-      const ps = c.penalty_state || 'none';
-      if (ps === 'email_sent') return `<span class="pill pill-yes" style="font-size:10px">Pen. Email Sent</span>`;
-      if (ps === 'uploaded') return `<span class="pill" style="font-size:10px;background:#FDE68A;color:#92400E">Uploaded</span>`;
-      if (ps === 'csv_generated') return `<span class="pill" style="font-size:10px;background:#FED7AA;color:#9A3412">CSV Done</span>`;
-      return `<span class="pill" style="font-size:10px;background:#FECACA;color:#991B1B">Penalty</span>`;
-    }
-    return '—';
-  }
-  function recLink(url) {
-    if (!url) return '—';
-    const u = url.split(',')[0].trim();
-    return `<a href="${u}" target="_blank" class="link" style="font-size:11px">Recording</a>`;
-  }
-
-  let html = '';
-  const colCount = 10;
-
-  // Sub-grouping for warning and penalty
-  function renderGroup(groupCases, groupLabel, groupColor) {
-    if (groupCases.length === 0) return '';
-    let g = `<div class="pipeline-group-hdr" style="border-left:4px solid ${groupColor}">${groupLabel} <span style="font-weight:400;color:var(--text-3)">(${groupCases.length})</span></div>`;
-    g += `<div class="table-wrap"><table><thead><tr>
-      <th class="check-col"><input type="checkbox" onchange="b1PipelineSelectAll(this, '${groupLabel}')"/></th>
-      <th style="width:30px"></th><th>Source</th><th>Mobile</th><th>Partner</th><th>Partner ID</th><th>Detail</th><th>Recording</th><th>Email</th><th>Action</th>
-    </tr></thead><tbody>`;
-    groupCases.forEach(c => {
-      const isNew = c.created_at && c.created_at.startsWith(todayStr);
-      g += `<tr>
-        <td class="check-col"><input type="checkbox" class="b1-chk b1-pipe-chk" data-group="${groupLabel}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-        <td>${isNew ? '<span class="new-dot" title="New today"></span>' : ''}</td>
-        <td>${sourceTag(c.source)}</td>
-        <td>${c.customer_mobile||'—'}</td>
-        <td style="font-size:12px">${c.partner_name||'—'}</td>
-        <td style="font-size:11px;color:var(--text-3)">${c.partner_id||'—'}</td>
-        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(c.calling_remarks||c.risk_score||c.calling_status||c.report_text||'').replace(/"/g,'&quot;')}">${keyDetail(c)}</td>
-        <td>${recLink(c.call_recording)}</td>
-        <td>${eBadge(c)}</td>
-        <td>${aBadge(c)}</td>
-      </tr>`;
-    });
-    g += `</tbody></table></div>`;
-    return g;
-  }
-
-  if (b1CurrentSub === 'warning') {
-    const emailPending = filtered.filter(c => c.email_state !== 'sent');
-    const emailSent = filtered.filter(c => c.email_state === 'sent');
-    html += renderGroup(emailPending, 'Email Pending', 'var(--warning)');
-    html += renderGroup(emailSent, 'Email Sent', 'var(--success)');
-  } else if (b1CurrentSub === 'penalty') {
-    const pNone = filtered.filter(c => !c.penalty_state || c.penalty_state === 'none');
-    const pCsv = filtered.filter(c => c.penalty_state === 'csv_generated');
-    const pUploaded = filtered.filter(c => c.penalty_state === 'uploaded');
-    const pEmailSent = filtered.filter(c => c.penalty_state === 'email_sent');
-    // Step indicators
-    html += `<div style="display:flex;align-items:center;gap:4px;padding:10px 14px;background:white;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px">
-      <span class="penalty-step"><span class="penalty-step-num ${pNone.length?'active':'done'}">1</span> Mark Penalty</span>
-      <span style="color:var(--text-3)">→</span>
-      <span class="penalty-step"><span class="penalty-step-num ${pCsv.length?'active':pNone.length?'pending':'done'}">2</span> Download CSV</span>
-      <span style="color:var(--text-3)">→</span>
-      <span class="penalty-step"><span class="penalty-step-num ${pUploaded.length?'active':(pCsv.length||pNone.length)?'pending':'done'}">3</span> Upload Result</span>
-      <span style="color:var(--text-3)">→</span>
-      <span class="penalty-step"><span class="penalty-step-num ${pEmailSent.length?'done':'pending'}">4</span> Send Email</span>
-    </div>`;
-    html += renderGroup(pNone, 'Pending — Mark as Penalty', '#EF4444');
-    html += renderGroup(pCsv, 'CSV Generated — Upload Result', 'var(--warning)');
-    html += renderGroup(pUploaded, 'Uploaded — Send Penalty Email', 'var(--info)');
-    html += renderGroup(pEmailSent, 'Penalty Email Sent', 'var(--success)');
-  } else {
-    // Triage — single group, no sub-headers
-    html += renderGroup(filtered, 'Needs Triage', 'var(--warning)');
-  }
-
-  body.innerHTML = html;
-  // Update count
-  const cnt = document.getElementById('b1pfCount');
-  if (cnt) cnt.textContent = filtered.length + ' case(s)';
-}
-
-function b1PipelineSelectAll(chkAll, groupLabel) {
-  document.querySelectorAll(`.b1-pipe-chk[data-group="${groupLabel}"]`).forEach(chk => {
-    chk.checked = chkAll.checked;
-    b1HandleChk(chk);
-  });
-}
 
 async function syncBreach1() {
   document.getElementById('b1-sync-status').textContent = 'Syncing…';
@@ -1276,13 +1014,11 @@ function renderActedBySource(actedSrc) {
   if (!div) return;
   const sourceLabels = {
     churn_logic: '6mo Churn', churn_feb: 'Churn Feb', rohit_call_tagging: 'Rohit Calling',
-    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Complaints',
-    cx_churn_px_interaction: 'Churn Px', cx_churn_no_tickets: 'Churn No Tkt', manual_report: 'Manual',
+    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Complaints', manual_report: 'Manual',
   };
   const sourceColors = {
     churn_logic: '#8B5CF6', churn_feb: '#3B82F6', rohit_call_tagging: '#F59E0B',
-    cancelled_calling: '#F97316', customer_complaint: '#EF4444',
-    cx_churn_px_interaction: '#06B6D4', cx_churn_no_tickets: '#14B8A6', manual_report: '#10B981',
+    cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
   };
   div.innerHTML = Object.entries(actedSrc).map(([k, v]) => {
     const label = sourceLabels[k] || k;
@@ -1304,13 +1040,11 @@ function renderSourceDetail(detail) {
   container.style.display = '';
   const sourceLabels = {
     churn_logic: '6mo Churn', churn_feb: 'Churn Feb', rohit_call_tagging: 'Rohit Calling',
-    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Complaints',
-    cx_churn_px_interaction: 'Churn Px', cx_churn_no_tickets: 'Churn No Tkt', manual_report: 'Manual',
+    cancelled_calling: 'Cancelled Calling', customer_complaint: 'Complaints', manual_report: 'Manual',
   };
   const sourceColors = {
     churn_logic: '#8B5CF6', churn_feb: '#3B82F6', rohit_call_tagging: '#F59E0B',
-    cancelled_calling: '#F97316', customer_complaint: '#EF4444',
-    cx_churn_px_interaction: '#06B6D4', cx_churn_no_tickets: '#14B8A6', manual_report: '#10B981',
+    cancelled_calling: '#F97316', customer_complaint: '#EF4444', manual_report: '#10B981',
   };
   let html = `<thead><tr style="background:var(--card)">
     <th style="text-align:left;padding:6px 10px">Source</th>
@@ -1346,8 +1080,6 @@ function renderSourceStrip(bySource) {
     {key:'cancelled_calling', label:'Cancelled Calling', color:'#F97316'},
     {key:'customer_complaint', label:'Complaints', color:'#EF4444'},
     {key:'rohit_call_tagging', label:'Rohit Calling', color:'#F59E0B'},
-    {key:'cx_churn_px_interaction', label:'Churn Px', color:'#06B6D4'},
-    {key:'cx_churn_no_tickets', label:'Churn No Tkt', color:'#14B8A6'},
     {key:'manual_report', label:'Manual', color:'#10B981'},
   ];
   strip.innerHTML = sources.map(s => {
@@ -1371,19 +1103,12 @@ async function loadB1Filters() {
     api('GET', '/api/breach1/partners'),
     api('GET', '/api/breach1/zones'),
   ]);
-  // Populate both "All Cases" and pipeline filter dropdowns
-  ['b1fPartner','b1pfPartner'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    sel.innerHTML = '<option value="all">All Partners</option>';
-    if (Array.isArray(partners)) partners.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
-  });
-  ['b1fZone','b1pfZone'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    sel.innerHTML = '<option value="all">All Zones</option>';
-    if (Array.isArray(zones)) zones.forEach(z => { const o = document.createElement('option'); o.value=z; o.textContent=z; sel.appendChild(o); });
-  });
+  const pSel = document.getElementById('b1fPartner');
+  pSel.innerHTML = '<option value="all">All Partners</option>';
+  if (Array.isArray(partners)) partners.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p; pSel.appendChild(o); });
+  const zSel = document.getElementById('b1fZone');
+  zSel.innerHTML = '<option value="all">All Zones</option>';
+  if (Array.isArray(zones)) zones.forEach(z => { const o = document.createElement('option'); o.value=z; o.textContent=z; zSel.appendChild(o); });
 }
 
 let _b1LastJson = '';
@@ -1406,8 +1131,6 @@ async function loadB1Cases(manual) {
       renderB1Cases();
       _restoreB1CollapseStates(collapsed);
     }
-    renderB1Pipeline();
-    updateB1SubBadges();
   }
   if (manual) setRefreshing('b1Body', false);
 }
@@ -1521,7 +1244,7 @@ function renderB1Cases() {
   const churnCases = [...(bySrc['churn_logic']||[]), ...(bySrc['churn_feb']||[])];
   const displayGroups = {};
   if (churnCases.length) displayGroups['churn_6mo'] = churnCases;
-  ['rohit_call_tagging','cancelled_calling','cx_churn_px_interaction','cx_churn_no_tickets'].forEach(s => {
+  ['rohit_call_tagging','cancelled_calling'].forEach(s => {
     if (bySrc[s] && bySrc[s].length) displayGroups[s] = bySrc[s];
   });
   if (bySrc['customer_complaint'] && bySrc['customer_complaint'].length) {
@@ -1540,14 +1263,12 @@ function renderB1Cases() {
   const displayColors = {
     churn_6mo: '#8B5CF6', rohit_call_tagging: '#F59E0B',
     cancelled_calling: '#F97316', complaint_put: '#EF4444', complaint_pitch: '#F97316',
-    complaint_other: '#DC2626', cx_churn_px_interaction: '#06B6D4',
-    cx_churn_no_tickets: '#14B8A6', manual_report: '#10B981',
+    complaint_other: '#DC2626', manual_report: '#10B981',
   };
   const displayLabels = {
     churn_6mo: '6mo Churn', rohit_call_tagging: 'Rohit Call Tagging',
     cancelled_calling: 'Cancelled Calling', complaint_put: 'Complaints — Put Non-Wiom',
     complaint_pitch: 'Complaints — Pitched Non-Wiom', complaint_other: 'Complaints — Other',
-    cx_churn_px_interaction: 'Churn After Px Interaction', cx_churn_no_tickets: 'Churn Without Tickets',
     manual_report: 'Manual Report',
   };
 
@@ -1635,31 +1356,6 @@ function renderB1Cases() {
             <td style="font-size:12px">${c.connected||'—'}</td>
             <td style="font-size:12px">${c.calling_remarks||'—'}</td>
             <td>${recordingLink(c.call_recording)}</td>
-            <td>${emailBadge(c)}</td>
-            <td>${actionBadge(c)}</td>
-          </tr>`;
-        });
-      });
-      html += `</tbody></table>`;
-
-    } else if (src === 'cx_churn_px_interaction' || src === 'cx_churn_no_tickets') {
-      const cols = 9;
-      html += `<table><thead><tr>
-        <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
-        <th>Mobile</th><th>Partner</th><th>Account ID</th><th>City</th><th>Call Connected</th><th>Remarks</th><th>Email</th><th>Action</th>
-      </tr></thead><tbody>`;
-      partners.forEach(([pName, pCases]) => {
-        const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');
-        html += partnerHeader(pName, pCases, srcKey, cols);
-        pCases.forEach(c => {
-          html += `<tr class="b1p-${pKey}">
-            <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey} b1pchk-${pKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
-            <td>${c.customer_mobile||'—'}</td>
-            <td style="font-size:12px">${c.partner_name||'—'}</td>
-            <td style="font-size:12px">${c.partner_id||'—'}</td>
-            <td style="font-size:12px">${c.city||'—'}</td>
-            <td style="font-size:12px">${c.connected||'—'}</td>
-            <td style="font-size:12px">${c.calling_remarks||'—'}</td>
             <td>${emailBadge(c)}</td>
             <td>${actionBadge(c)}</td>
           </tr>`;
@@ -1819,8 +1515,8 @@ async function markB1Action(actionType) {
   if (r.ok) {
     toast(`${r.count} case(s) marked as ${actionType}`, 'success');
     await Promise.all([loadB1Summary(), loadB1Cases()]);
-    if (actionType === 'warning') { switchB1Sub('warning'); showEmailComposer(); }
-    if (actionType === 'penalty') { switchB1Sub('penalty'); showPenaltyPanel(); }
+    if (actionType === 'warning') showEmailComposer();
+    if (actionType === 'penalty') showPenaltyPanel();
   } else {
     toast(r.error || 'Failed', 'error');
   }
@@ -1839,10 +1535,11 @@ async function markB1EmailSentManual() {
 }
 
 function showPenaltyPanel() {
-  switchB1Sub('penalty');
   document.getElementById('penaltyPanel').style.display = '';
+  // Show selected count if any, otherwise count all penalty cases from loaded data
   const penCount = b1Selected.size || (Array.isArray(b1Cases) ? b1Cases.filter(c => c.action_type === 'penalty').length : 0);
   document.getElementById('pp-count').textContent = penCount;
+  document.getElementById('penaltyPanel').scrollIntoView({behavior:'smooth'});
 }
 
 async function downloadB1PenaltyXlsx() {
