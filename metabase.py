@@ -15,7 +15,7 @@ WITH installs_and_free_plan AS (
             OTP_ISSUED_TIME + interval '330 minute' AS install_time,
             mobile,
             ROW_NUMBER() OVER (
-                PARTITION BY idmaker(trum.shard, 0, router_nas_id)
+                PARTITION BY trum.ROUTER_NAS_ID
                 ORDER BY OTP_EXPIRY_TIME
             ) AS rn
         FROM PROD_DB.PUBLIC.T_ROUTER_USER_MAPPING trum
