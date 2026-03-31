@@ -285,9 +285,7 @@ try:
             from google_sheets import (fetch_disintermediation_cases, get_all_partner_emails,
                                        fetch_fp4_cases, fetch_churn_feb_cases,
                                        fetch_rohit_call_tagging_cases, fetch_cancelled_calling_cases,
-                                       fetch_customer_complaint_cases,
-                                       fetch_cx_churn_px_interaction_cases,
-                                       fetch_cx_churn_without_tickets_cases)
+                                       fetch_customer_complaint_cases)
         except Exception as e:
             app.logger.error(f"B1/B4 import error: {e}")
             return
@@ -454,56 +452,6 @@ try:
             app.logger.info(f"B1 sync (customer_complaint): {count} cases")
         except Exception as e:
             app.logger.error(f"B1 sync customer_complaint error: {e}")
-        # B1 — Source 6: Cx Churn After Px Interaction
-        try:
-            cases = fetch_cx_churn_px_interaction_cases()
-            for c in cases:
-                partner = str(c.get("partner_name") or "").strip()
-                email_info = _fuzzy_partner_lookup(partner, emails)
-                pid = _normalize_partner_id(c.get("partner_id", "")) or _normalize_partner_id(email_info.get("partner_id", ""))
-                data = {
-                    "customer_mobile": _normalize_partner_id(c.get("customer_mobile", "")),
-                    "lng_nas_id": str(c.get("device_id") or "").strip(),
-                    "partner_id": pid,
-                    "partner_name": partner,
-                    "connected": str(c.get("Called") or "").strip(),
-                    "calling_remarks": str(c.get("action_notes") or "").strip(),
-                    "disintermediation": str(c.get("Disintermediation_status") or "").strip(),
-                    "call_recording": str(c.get("Call Recording") or "").strip(),
-                    "call_timestamp": _parse_expiry_date(c.get("Call_date", "")),
-                    "city": str(c.get("cluster") or "").strip(),
-                    "partner_email": email_info.get("email", ""),
-                    "source": "cx_churn_px_interaction",
-                }
-                db.upsert_breach1_case(data)
-            app.logger.info(f"B1 sync (cx_churn_px_interaction): {len(cases)} cases")
-        except Exception as e:
-            app.logger.error(f"B1 sync cx_churn_px_interaction error: {e}")
-        # B1 — Source 7: Cx Churn Without Service Tickets
-        try:
-            cases = fetch_cx_churn_without_tickets_cases()
-            for c in cases:
-                partner = str(c.get("partner_name") or "").strip()
-                email_info = _fuzzy_partner_lookup(partner, emails)
-                pid = _normalize_partner_id(c.get("partner_id", "")) or _normalize_partner_id(email_info.get("partner_id", ""))
-                data = {
-                    "customer_mobile": str(c.get("MOBILE") or "").strip(),
-                    "lng_nas_id": str(c.get("NASID") or "").strip(),
-                    "partner_id": pid,
-                    "partner_name": partner,
-                    "connected": str(c.get("Call status") or "").strip(),
-                    "calling_remarks": str(c.get("action_notes") or "").strip(),
-                    "disintermediation": str(c.get("Disintermediation") or "").strip(),
-                    "call_recording": str(c.get("Call Recording") or "").strip(),
-                    "call_timestamp": str(c.get("Call_date") or "").strip(),
-                    "expiry_dt": _parse_expiry_date(c.get("PLAN_END", "")),
-                    "partner_email": email_info.get("email", ""),
-                    "source": "cx_churn_no_tickets",
-                }
-                db.upsert_breach1_case(data)
-            app.logger.info(f"B1 sync (cx_churn_no_tickets): {len(cases)} cases")
-        except Exception as e:
-            app.logger.error(f"B1 sync cx_churn_no_tickets error: {e}")
         # B4
         try:
             cases = fetch_fp4_cases()
@@ -1010,9 +958,7 @@ def breach1_sync():
     try:
         from google_sheets import (fetch_disintermediation_cases, get_all_partner_emails,
                                    fetch_churn_feb_cases, fetch_rohit_call_tagging_cases,
-                                   fetch_cancelled_calling_cases, fetch_customer_complaint_cases,
-                                   fetch_cx_churn_px_interaction_cases,
-                                   fetch_cx_churn_without_tickets_cases)
+                                   fetch_cancelled_calling_cases, fetch_customer_complaint_cases)
         emails = get_all_partner_emails()
         emails_by_id = _build_partner_id_index(emails)
         total_new = 0
@@ -1195,60 +1141,6 @@ def breach1_sync():
             total_fetched += count
         except Exception as e:
             source_counts["customer_complaint"] = f"error: {e}"
-
-        # Source 6: Cx Churn After Px Interaction
-        try:
-            cases = fetch_cx_churn_px_interaction_cases()
-            for c in cases:
-                partner = str(c.get("partner_name") or "").strip()
-                email_info = _fuzzy_partner_lookup(partner, emails)
-                pid = _normalize_partner_id(c.get("partner_id", "")) or _normalize_partner_id(email_info.get("partner_id", ""))
-                data = {
-                    "customer_mobile": _normalize_partner_id(c.get("customer_mobile", "")),
-                    "lng_nas_id": str(c.get("device_id") or "").strip(),
-                    "partner_id": pid,
-                    "partner_name": partner,
-                    "connected": str(c.get("Called") or "").strip(),
-                    "calling_remarks": str(c.get("action_notes") or "").strip(),
-                    "disintermediation": str(c.get("Disintermediation_status") or "").strip(),
-                    "call_recording": str(c.get("Call Recording") or "").strip(),
-                    "call_timestamp": _parse_expiry_date(c.get("Call_date", "")),
-                    "city": str(c.get("cluster") or "").strip(),
-                    "partner_email": email_info.get("email", ""),
-                    "source": "cx_churn_px_interaction",
-                }
-                _count_and_upsert(data)
-            source_counts["cx_churn_px_interaction"] = len(cases)
-            total_fetched += len(cases)
-        except Exception as e:
-            source_counts["cx_churn_px_interaction"] = f"error: {e}"
-
-        # Source 7: Cx Churn Without Service Tickets
-        try:
-            cases = fetch_cx_churn_without_tickets_cases()
-            for c in cases:
-                partner = str(c.get("partner_name") or "").strip()
-                email_info = _fuzzy_partner_lookup(partner, emails)
-                pid = _normalize_partner_id(c.get("partner_id", "")) or _normalize_partner_id(email_info.get("partner_id", ""))
-                data = {
-                    "customer_mobile": str(c.get("MOBILE") or "").strip(),
-                    "lng_nas_id": str(c.get("NASID") or "").strip(),
-                    "partner_id": pid,
-                    "partner_name": partner,
-                    "connected": str(c.get("Call status") or "").strip(),
-                    "calling_remarks": str(c.get("action_notes") or "").strip(),
-                    "disintermediation": str(c.get("Disintermediation") or "").strip(),
-                    "call_recording": str(c.get("Call Recording") or "").strip(),
-                    "call_timestamp": str(c.get("Call_date") or "").strip(),
-                    "expiry_dt": _parse_expiry_date(c.get("PLAN_END", "")),
-                    "partner_email": email_info.get("email", ""),
-                    "source": "cx_churn_no_tickets",
-                }
-                _count_and_upsert(data)
-            source_counts["cx_churn_no_tickets"] = len(cases)
-            total_fetched += len(cases)
-        except Exception as e:
-            source_counts["cx_churn_no_tickets"] = f"error: {e}"
 
         return jsonify({"ok": True, "new_cases": total_new, "updated": total_updated,
                         "total_fetched": total_fetched, "by_source": source_counts})
