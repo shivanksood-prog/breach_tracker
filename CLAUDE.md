@@ -37,7 +37,7 @@ Internal tool for Wiom to detect and manage partner breach cases across 3 types:
 | `db.py` | SQLite for B1/B4 cases |
 | `email_sender.py` | Email templates (FP1/FP2/FP4) + Gmail OAuth2/SMTP sending |
 | `actions.py` | CSV/Excel generation (refund CSV, penalty xlsx, partner comms) |
-| `google_sheets.py` | Read partner emails, disintermediation cases, FP4 cases from Sheets |
+| `google_sheets.py` | Read partner emails, disintermediation cases, FP4 cases from Sheets (has retry on timeout) |
 | `kapture.py` | KaptureRM CRM API client for ticket enrichment |
 | `metabase.py` | Metabase SQL queries for breach detection |
 | `config.py` | Settings from `settings.json` or env vars |
