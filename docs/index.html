@@ -1859,10 +1859,10 @@ function renderB1Cases() {
       html += `</tbody></table>`;
 
     } else if (src === 'cx_churn_px_interaction' || src === 'cx_churn_no_tickets') {
-      const cols = 9;
+      const cols = 10;
       html += `<table><thead><tr>
         <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
-        <th>Mobile</th><th>Partner</th><th>Account ID</th><th>City</th><th>Call Connected</th><th>Remarks</th><th>Email</th><th>Action</th>
+        <th>Mobile</th><th>Partner</th><th>Account ID</th><th>Expiry</th><th>City</th><th>Call Connected</th><th>Remarks</th><th>Email</th><th>Action</th>
       </tr></thead><tbody>`;
       partners.forEach(([pName, pCases]) => {
         const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');
@@ -1873,6 +1873,7 @@ function renderB1Cases() {
             <td>${c.customer_mobile||'—'}</td>
             <td style="font-size:12px">${c.partner_name||'—'}</td>
             <td style="font-size:12px">${c.partner_id||'—'}</td>
+            <td style="font-size:12px;white-space:nowrap">${c.expiry_dt||'—'}</td>
             <td style="font-size:12px">${c.city||'—'}</td>
             <td style="font-size:12px">${c.connected||'—'}</td>
             <td style="font-size:12px">${c.calling_remarks||'—'}</td>
