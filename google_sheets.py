@@ -2,9 +2,13 @@
 
 import json
 import os
+import time
+import logging
 from pathlib import Path
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+
+log = logging.getLogger(__name__)
 
 SA_FILE = Path(__file__).parent / "service_account.json"
 
@@ -14,6 +18,8 @@ ESCALATION_SHEET_ID = "1BzV24db7cuetXNqMch10knC9aygr0-jHgZLaeSprWPc"
 ROHIT_CALL_TAGGING_SHEET_ID = "1C5HAqbpMxxjF76NHY-6OY0AIr1MML0vG0QfywT5P0zk"
 CANCELLED_CALLING_SHEET_ID = "1Bv0Dr6vv3SvQbyZRYPKAGJGCnTcrQcItp-PRcVsgHqI"
 CUSTOMER_COMPLAINT_SHEET_ID = "1c75OazHxddw5DLeje5Icaqcrk2TmqF4QxzIzR4UQf_o"
+CX_CHURN_PX_INTERACTION_SHEET_ID = "1S232VSvnVbqf-aTclcmfCbTjbRmZTP6_mgn5xqEUvJk"
+CX_CHURN_WITHOUT_TICKETS_SHEET_ID = "1Knkpw6bMKZFNQNQ_t1RblRsCfjLOOR81pH09kKQn6Mo"
 
 SCOPES_READONLY = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 SCOPES_READWRITE = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -29,6 +35,24 @@ def _get_service(readonly=True):
     else:
         creds = service_account.Credentials.from_service_account_file(str(SA_FILE), scopes=scopes)
     return build("sheets", "v4", credentials=creds)
+
+
+def _sheets_get_with_retry(service, spreadsheet_id, range_, max_retries=3, **kwargs):
+    """Execute a sheets values().get() with retry on transient errors (timeouts, 503)."""
+    for attempt in range(max_retries):
+        try:
+            return service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id, range=range_, **kwargs
+            ).execute()
+        except Exception as e:
+            is_transient = "timeout" in str(e).lower() or "503" in str(e) or "ssl" in str(e).lower()
+            if is_transient and attempt < max_retries - 1:
+                wait = 2 ** attempt
+                log.warning(f"Sheets API retry {attempt+1}/{max_retries} for {range_}: {e}")
+                time.sleep(wait)
+                service = _get_service()
+            else:
+                raise
 
 
 def fetch_disintermediation_cases() -> list[dict]:
@@ -190,6 +214,46 @@ def fetch_partner_status_emails() -> dict:
 def get_all_partner_emails() -> dict:
     """Read partner emails from Partner Status Final tab only."""
     return fetch_partner_status_emails()
+
+
+def fetch_cx_churn_px_interaction_cases() -> list[dict]:
+    """Read rows from 'Cx Churn After Px Interaction' sheet.
+    Filter: Disintermediation_status == 'Yes'.
+    """
+    service = _get_service()
+    result = _sheets_get_with_retry(service, CX_CHURN_PX_INTERACTION_SHEET_ID,
+        "'signal_data_938168ce-cc8'!A1:Q5000", valueRenderOption="UNFORMATTED_VALUE")
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return []
+    headers = rows[0]
+    cases = []
+    for row in rows[1:]:
+        padded = row + [""] * (len(headers) - len(row))
+        case = {headers[i]: padded[i] for i in range(len(headers))}
+        if str(case.get("Disintermediation_status") or "").strip().lower() == "yes":
+            cases.append(case)
+    return cases
+
+
+def fetch_cx_churn_without_tickets_cases() -> list[dict]:
+    """Read rows from 'Cx Churn without service tkts' sheet.
+    Filter: Disintermediation == 'Yes'.
+    """
+    service = _get_service()
+    result = _sheets_get_with_retry(service, CX_CHURN_WITHOUT_TICKETS_SHEET_ID,
+        "'signal_data_44b802e7-b96'!A1:Q5000", valueRenderOption="UNFORMATTED_VALUE")
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return []
+    headers = rows[0]
+    cases = []
+    for row in rows[1:]:
+        padded = row + [""] * (len(headers) - len(row))
+        case = {headers[i]: padded[i] for i in range(len(headers))}
+        if str(case.get("Disintermediation") or "").strip().lower() == "yes":
+            cases.append(case)
+    return cases
 
 
 def get_existing_escalation_customers() -> set:
