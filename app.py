@@ -1330,9 +1330,11 @@ def breach1_send_email():
     test_email = body.get("test_email", "").strip()
     is_test = bool(test_email)
 
+    # Read all cases once to avoid N API calls
+    all_cases = {c["id"]: c for c in b1db.get_breach1_cases()}
     results = []
     for cid in case_ids:
-        case = b1db.get_breach1_case(cid)
+        case = all_cases.get(str(cid))
         if not case:
             results.append({"case_id": cid, "ok": False, "error": "Case not found"})
             continue
@@ -1548,8 +1550,8 @@ def breach1_penalty_xlsx():
     body = request.json or {}
     case_ids = body.get("case_ids", [])
     if case_ids:
-        cases = [b1db.get_breach1_case(cid) for cid in case_ids]
-        cases = [c for c in cases if c and c.get("action_type") == "penalty"]
+        all_cases = {c["id"]: c for c in b1db.get_breach1_cases()}
+        cases = [all_cases[str(cid)] for cid in case_ids if str(cid) in all_cases and all_cases[str(cid)].get("action_type") == "penalty"]
     else:
         cases = b1db.get_breach1_penalty_cases()
     if not cases:
@@ -1637,9 +1639,11 @@ def breach1_send_penalty_email():
     test_email = body.get("test_email", "").strip()
     is_test = bool(test_email)
 
+    # Read all cases once to avoid N API calls
+    all_cases = {c["id"]: c for c in b1db.get_breach1_cases()}
     results = []
     for cid in case_ids:
-        case = b1db.get_breach1_case(cid)
+        case = all_cases.get(str(cid))
         if not case:
             results.append({"case_id": cid, "ok": False, "error": "Case not found"})
             continue
