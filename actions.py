@@ -29,7 +29,7 @@ def generate_refund_csv(cases: list) -> str:
             int(amount) if amount else 0,
             c.get("customer_mobile", ""),
             "",
-            "No",
+            "Yes",
             "No",
             "customer",
             "refund",
