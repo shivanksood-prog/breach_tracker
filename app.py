@@ -473,6 +473,7 @@ try:
                     "call_recording": str(c.get("Call Recording") or "").strip(),
                     "call_timestamp": _parse_expiry_date(c.get("Call_date", "")),
                     "city": str(c.get("cluster") or "").strip(),
+                    "expiry_dt": _parse_expiry_date(c.get("plan_end_time", "")),
                     "partner_email": email_info.get("email", ""),
                     "source": "cx_churn_px_interaction",
                 }
@@ -1213,6 +1214,7 @@ def breach1_sync():
                     "call_recording": str(c.get("Call Recording") or "").strip(),
                     "call_timestamp": _parse_expiry_date(c.get("Call_date", "")),
                     "city": str(c.get("cluster") or "").strip(),
+                    "expiry_dt": _parse_expiry_date(c.get("plan_end_time", "")),
                     "partner_email": email_info.get("email", ""),
                     "source": "cx_churn_px_interaction",
                 }
