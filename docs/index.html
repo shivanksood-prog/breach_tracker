@@ -2014,7 +2014,7 @@ function toggleSourceGroup(key) {
 }
 
 function b1HandleChk(chk) {
-  const id = parseInt(chk.value);
+  const id = chk.value;
   if (chk.checked) b1Selected.add(id); else b1Selected.delete(id);
   updateB1SelBar();
 }
