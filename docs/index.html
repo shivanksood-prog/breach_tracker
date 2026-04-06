@@ -1350,7 +1350,7 @@ async function dlBulk(type) {
   let csv = 'Name of Contact,Payout Link Amount,Contact Phone Number,Contact Email ID,Send Link to Phone Number,Send Link to Mail ID,Contact Type,Payout Purpose,Payout Description,Reference ID(optional),Internal notes(optional): Title,Internal notes(optional): Description\n';
   filtered.forEach(c => {
     const amt = c.extra_amount ? Math.round(c.extra_amount) : 0;
-    csv += `Wiom User,${amt},${c.customer_mobile||''},,No,No,customer,refund,Refund for Extra money taken,${c.ticket_id||''},,\n`;
+    csv += `Wiom User,${amt},${c.customer_mobile||''},,Yes,No,customer,refund,Refund for Extra money taken,${c.ticket_id||''},,\n`;
   });
 
   const blob = new Blob([csv], {type:'text/csv'});
