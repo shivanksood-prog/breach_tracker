@@ -1496,15 +1496,18 @@ def breach1_sources():
 
 @app.route("/api/breach1/set-action", methods=["POST"])
 def breach1_set_action():
-    """Set action_type (warning/penalty) on selected case_ids."""
+    """Set action_type on selected case_ids. Supports 'warning', 'penalty', 'pending' (reset)."""
     body = request.json or {}
     case_ids = body.get("case_ids", [])
     action_type = body.get("action_type", "")
-    if action_type not in ("warning", "penalty"):
-        return jsonify({"error": "action_type must be 'warning' or 'penalty'"}), 400
+    if action_type not in ("warning", "penalty", "pending"):
+        return jsonify({"error": "action_type must be 'warning', 'penalty', or 'pending'"}), 400
     if not case_ids:
         return jsonify({"error": "No case_ids provided"}), 400
-    b1db.set_breach1_action_type(case_ids, action_type)
+    if action_type == "pending":
+        b1db.reset_breach1_action(case_ids)
+    else:
+        b1db.set_breach1_action_type(case_ids, action_type)
     return jsonify({"ok": True, "count": len(case_ids), "action_type": action_type})
 
 

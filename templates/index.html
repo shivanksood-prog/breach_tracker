@@ -1218,20 +1218,20 @@ function renderB1Cases() {
   }
 
   function actionBadge(c) {
-    if (!c.action_type) return '<span style="font-size:11px;color:var(--text-3)">—</span>';
-    if (c.action_type === 'warning') {
-      return c.email_state === 'sent'
-        ? '<span class="pill pill-yes">Warning Sent</span>'
-        : '<span class="pill" style="background:#FEF3C7;color:#92400E">Warning</span>';
-    }
-    if (c.action_type === 'penalty') {
+    const cur = c.action_type || 'pending';
+    let detail = '';
+    if (cur === 'warning' && c.email_state === 'sent') detail = 'Sent';
+    else if (cur === 'penalty') {
       const ps = c.penalty_state || 'none';
-      if (ps === 'email_sent') return '<span class="pill pill-yes">Penalty Done</span>';
-      if (ps === 'uploaded') return '<span class="pill" style="background:#DBEAFE;color:#1E40AF">Uploaded</span>';
-      if (ps === 'csv_generated') return '<span class="pill" style="background:#FEF3C7;color:#92400E">CSV Done</span>';
-      return '<span class="pill" style="background:#FEE2E2;color:#991B1B">Penalty</span>';
+      if (ps === 'email_sent') detail = 'Done';
+      else if (ps === 'uploaded') detail = 'Uploaded';
+      else if (ps === 'csv_generated') detail = 'CSV';
     }
-    return '';
+    return `<select style="font-size:11px;padding:2px 4px;border:1.5px solid var(--border);border-radius:5px;cursor:pointer" onchange="b1ChangeAction('${c.id}',this.value)" onclick="event.stopPropagation()">
+      <option value="pending" ${cur==='pending'?'selected':''}>Pending</option>
+      <option value="warning" ${cur==='warning'?'selected':''}>Warning</option>
+      <option value="penalty" ${cur==='penalty'?'selected':''}>Penalty</option>
+    </select>${detail?`<span style="font-size:9px;color:var(--text-3);margin-left:2px">${detail}</span>`:''}`;
   }
 
   function recordingLink(url) {
@@ -1589,6 +1589,16 @@ function updateB1SelBar() {
   document.getElementById('b1SelCount').textContent = n;
   document.getElementById('ec-count').textContent = n;
   bar.style.display = n > 0 ? 'flex' : 'none';
+}
+
+async function b1ChangeAction(caseId, newAction) {
+  const r = await api('POST', '/api/breach1/set-action', {
+    case_ids: [caseId], action_type: newAction
+  });
+  if (r.ok) {
+    toast(`Case updated to ${newAction}`, 'success');
+    await Promise.all([loadB1Summary(), loadB1Cases()]);
+  } else { toast(r.error || 'Failed', 'error'); }
 }
 
 async function markB1Action(actionType) {

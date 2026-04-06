@@ -420,8 +420,32 @@ def set_breach1_action_type(case_ids: list, action_type: str):
     for rid in case_ids:
         idx = _find_row_by_id(str(rid), data)
         if idx != -1:
-            _batch_update_row("B1Cases", idx + 2,
-                              {"action_type": action_type, "updated_at": now}, COL)
+            updates = {"action_type": action_type, "updated_at": now}
+            # When switching to warning, reset penalty states
+            if action_type == "warning":
+                updates["penalty_state"] = "none"
+                updates["penalty_email_state"] = "pending"
+                updates["penalty_email_sent_at"] = ""
+            _batch_update_row("B1Cases", idx + 2, updates, COL)
+
+
+def reset_breach1_action(case_ids: list):
+    """Reset cases back to pending — clear action_type, email_state, penalty states."""
+    data = _read_all_cases()
+    now = _now_ist()
+    for rid in case_ids:
+        idx = _find_row_by_id(str(rid), data)
+        if idx != -1:
+            _batch_update_row("B1Cases", idx + 2, {
+                "action_type": "",
+                "email_state": "pending",
+                "email_sent_at": "",
+                "email_case_type": "",
+                "penalty_state": "none",
+                "penalty_email_state": "pending",
+                "penalty_email_sent_at": "",
+                "updated_at": now,
+            }, COL)
 
 
 def set_breach1_partner_email(case_ids: list, email: str):
