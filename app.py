@@ -8,6 +8,7 @@ from flask_cors import CORS
 
 import db
 import sheets_db
+import sheets_db_b1 as b1db
 import config
 import actions
 
@@ -323,7 +324,7 @@ try:
                     "partner_id": _normalize_partner_id(email_info.get("partner_id", "")),
                     "source": "churn_logic",
                 }
-                db.upsert_breach1_case(data)
+                b1db.upsert_breach1_case(data)
             app.logger.info(f"B1 sync (churn_logic): {len(cases)} cases")
         except Exception as e:
             app.logger.error(f"B1 sync churn_logic error: {e}")
@@ -357,7 +358,7 @@ try:
                     "partner_email": email_info.get("email", ""),
                     "source": "churn_feb",
                 }
-                db.upsert_breach1_case(data)
+                b1db.upsert_breach1_case(data)
             app.logger.info(f"B1 sync (churn_feb): {len(cases)} cases")
         except Exception as e:
             app.logger.error(f"B1 sync churn_feb error: {e}")
@@ -388,7 +389,7 @@ try:
                     "partner_email": partner_email,
                     "source": "rohit_call_tagging",
                 }
-                db.upsert_breach1_case(data)
+                b1db.upsert_breach1_case(data)
                 count += 1
             app.logger.info(f"B1 sync (rohit_call_tagging): {count} cases")
         except Exception as e:
@@ -416,7 +417,7 @@ try:
                     "partner_email": email_info.get("email", ""),
                     "source": "cancelled_calling",
                 }
-                db.upsert_breach1_case(data)
+                b1db.upsert_breach1_case(data)
             app.logger.info(f"B1 sync (cancelled_calling): {len(cases)} cases")
         except Exception as e:
             app.logger.error(f"B1 sync cancelled_calling error: {e}")
@@ -447,7 +448,7 @@ try:
                     "partner_email": email_info.get("email", ""),
                     "source": "customer_complaint",
                 }
-                db.upsert_breach1_case(data)
+                b1db.upsert_breach1_case(data)
                 count += 1
             app.logger.info(f"B1 sync (customer_complaint): {count} cases")
         except Exception as e:
@@ -968,13 +969,13 @@ def breach1_sync():
 
         def _count_and_upsert(data):
             nonlocal total_new, total_updated
-            existing = db.get_breach1_cases(search=data.get("lng_nas_id") or data.get("customer_mobile", ""))
+            existing = b1db.get_breach1_cases(search=data.get("lng_nas_id") or data.get("customer_mobile", ""))
             existing = [e for e in existing if e.get("customer_mobile") == data.get("customer_mobile")]
             if not existing:
                 total_new += 1
             else:
                 total_updated += 1
-            db.upsert_breach1_case(data)
+            b1db.upsert_breach1_case(data)
 
         # Source 1: 6mo Churn Sheet1
         try:
@@ -1157,14 +1158,14 @@ def breach1_cases():
     source = request.args.get("source", "all")
     action_type = request.args.get("action_type", "all")
     search = request.args.get("search", "").strip() or None
-    return jsonify(db.get_breach1_cases(partner=partner, zone=zone, status=status,
+    return jsonify(b1db.get_breach1_cases(partner=partner, zone=zone, status=status,
                                         email_state=email_state, search=search,
                                         source=source, action_type=action_type))
 
 
-@app.route("/api/breach1/cases/<int:case_id>")
+@app.route("/api/breach1/cases/<case_id>")
 def breach1_case(case_id):
-    case = db.get_breach1_case(case_id)
+    case = b1db.get_breach1_case(case_id)
     if not case:
         return jsonify({"error": "Not found"}), 404
     return jsonify(case)
@@ -1172,22 +1173,22 @@ def breach1_case(case_id):
 
 @app.route("/api/breach1/summary")
 def breach1_summary():
-    return jsonify(db.get_breach1_summary())
+    return jsonify(b1db.get_breach1_summary())
 
 
 @app.route("/api/breach1/dashboard")
 def breach1_dashboard():
-    return jsonify(db.get_breach1_dashboard())
+    return jsonify(b1db.get_breach1_dashboard())
 
 
 @app.route("/api/breach1/partners")
 def breach1_partners():
-    return jsonify(db.get_breach1_partners())
+    return jsonify(b1db.get_breach1_partners())
 
 
 @app.route("/api/breach1/zones")
 def breach1_zones():
-    return jsonify(db.get_breach1_zones())
+    return jsonify(b1db.get_breach1_zones())
 
 
 @app.route("/api/breach1/template")
@@ -1223,7 +1224,7 @@ def breach1_send_email():
 
     results = []
     for cid in case_ids:
-        case = db.get_breach1_case(cid)
+        case = b1db.get_breach1_case(cid)
         if not case:
             results.append({"case_id": cid, "ok": False, "error": "Case not found"})
             continue
@@ -1247,7 +1248,7 @@ def breach1_send_email():
 
         send_result = send_email(recipient, rendered["subject"], rendered["body_text"], rendered["body_html"])
 
-        db.log_breach1_email(
+        b1db.log_breach1_email(
             case_id=cid,
             partner_name=case.get("partner_name", ""),
             partner_email=case.get("partner_email", ""),
@@ -1263,7 +1264,7 @@ def breach1_send_email():
         )
 
         if send_result["ok"] and not is_test:
-            db.mark_breach1_email_sent([cid], 1)
+            b1db.mark_breach1_email_sent([cid], 1)
 
         results.append({"case_id": cid, **send_result})
 
@@ -1273,7 +1274,7 @@ def breach1_send_email():
 
 @app.route("/api/breach1/email-log")
 def breach1_email_log():
-    return jsonify(db.get_breach1_email_log())
+    return jsonify(b1db.get_breach1_email_log())
 
 
 @app.route("/api/breach1/escalation-preview")
@@ -1283,7 +1284,7 @@ def breach1_escalation_preview():
         from google_sheets import get_existing_escalation_customers, get_all_partner_emails
         existing_mobiles = get_existing_escalation_customers()
         emails = get_all_partner_emails()
-        cases = db.get_breach1_cases()
+        cases = b1db.get_breach1_cases()
 
         rows = []
         skipped = 0
@@ -1335,7 +1336,7 @@ def breach1_escalation_push():
         from google_sheets import append_escalation_rows, get_existing_escalation_customers, get_all_partner_emails
         existing_mobiles = get_existing_escalation_customers()
         emails = get_all_partner_emails()
-        cases = db.get_breach1_cases()
+        cases = b1db.get_breach1_cases()
 
         rows = []
         for c in sorted(cases, key=lambda x: (x.get("partner_name", ""), x.get("customer_mobile", ""))):
@@ -1384,7 +1385,7 @@ def breach1_escalation_push():
 
 @app.route("/api/breach1/sources")
 def breach1_sources():
-    return jsonify(db.get_breach1_sources())
+    return jsonify(b1db.get_breach1_sources())
 
 
 @app.route("/api/breach1/set-action", methods=["POST"])
@@ -1397,7 +1398,7 @@ def breach1_set_action():
         return jsonify({"error": "action_type must be 'warning' or 'penalty'"}), 400
     if not case_ids:
         return jsonify({"error": "No case_ids provided"}), 400
-    db.set_breach1_action_type(case_ids, action_type)
+    b1db.set_breach1_action_type(case_ids, action_type)
     return jsonify({"ok": True, "count": len(case_ids), "action_type": action_type})
 
 
@@ -1408,7 +1409,7 @@ def breach1_mark_email_sent():
     case_ids = body.get("case_ids", [])
     if not case_ids:
         return jsonify({"error": "No case_ids provided"}), 400
-    db.mark_breach1_email_sent(case_ids, case_type=1)
+    b1db.mark_breach1_email_sent(case_ids, case_type=1)
     return jsonify({"ok": True, "count": len(case_ids)})
 
 
@@ -1422,10 +1423,10 @@ def breach1_set_email():
     case_ids = body.get("case_ids", [])
     partner_name = body.get("partner_name", "").strip()
     if case_ids:
-        db.set_breach1_partner_email(case_ids, email)
+        b1db.set_breach1_partner_email(case_ids, email)
         return jsonify({"ok": True, "count": len(case_ids)})
     elif partner_name:
-        count = db.set_breach1_partner_email_by_name(partner_name, email)
+        count = b1db.set_breach1_partner_email_by_name(partner_name, email)
         return jsonify({"ok": True, "count": count, "partner_name": partner_name})
     return jsonify({"error": "Provide case_ids or partner_name"}), 400
 
@@ -1436,15 +1437,15 @@ def breach1_penalty_xlsx():
     body = request.json or {}
     case_ids = body.get("case_ids", [])
     if case_ids:
-        cases = [db.get_breach1_case(cid) for cid in case_ids]
+        cases = [b1db.get_breach1_case(cid) for cid in case_ids]
         cases = [c for c in cases if c and c.get("action_type") == "penalty"]
     else:
-        cases = db.get_breach1_penalty_cases()
+        cases = b1db.get_breach1_penalty_cases()
     if not cases:
         return jsonify({"error": "No penalty cases found"}), 400
     xlsx_bytes = actions.generate_b1_penalty_xlsx(cases)
     # Mark cases as csv_generated
-    db.mark_b1_penalty_csv_generated([c["id"] for c in cases])
+    b1db.mark_b1_penalty_csv_generated([c["id"] for c in cases])
     return Response(xlsx_bytes,
                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": "attachment; filename=fp1_penalty.xlsx"})
@@ -1485,7 +1486,7 @@ def breach1_upload_penalty_status():
         if status and status != "yes":
             unmatched.append({"partner_id": partner_id, "reason": row.get("Reason", "")})
             continue
-        result = db.mark_b1_penalty_uploaded(partner_id)
+        result = b1db.mark_b1_penalty_uploaded(partner_id)
         if result["matched"]:
             matched.append(result)
         else:
@@ -1527,7 +1528,7 @@ def breach1_send_penalty_email():
 
     results = []
     for cid in case_ids:
-        case = db.get_breach1_case(cid)
+        case = b1db.get_breach1_case(cid)
         if not case:
             results.append({"case_id": cid, "ok": False, "error": "Case not found"})
             continue
@@ -1548,7 +1549,7 @@ def breach1_send_penalty_email():
 
         send_result = send_email(recipient, rendered["subject"], rendered["body_text"], rendered["body_html"])
 
-        db.log_breach1_email(
+        b1db.log_breach1_email(
             case_id=cid,
             partner_name=case.get("partner_name", ""),
             partner_email=case.get("partner_email", ""),
@@ -1564,7 +1565,7 @@ def breach1_send_penalty_email():
         )
 
         if send_result["ok"] and not is_test:
-            db.mark_b1_penalty_email_sent([cid])
+            b1db.mark_b1_penalty_email_sent([cid])
 
         results.append({"case_id": cid, **send_result})
 
@@ -1613,7 +1614,7 @@ def breach1_manual_report():
         "reported_by": reported_by,
         "source": "manual_report",
     }
-    db.upsert_breach1_case(data)
+    b1db.upsert_breach1_case(data)
     return jsonify({"ok": True, "extracted": {
         "customer_mobile": customer_mobile,
         "partner_name": partner_name or "(not detected)",
