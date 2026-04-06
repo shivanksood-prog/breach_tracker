@@ -457,6 +457,17 @@
     <span id="b1-sync-status" style="font-size:11px;color:var(--text-3)"></span>
   </div>
 
+  <!-- Quick filter buttons -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px" id="b1-quick-filters">
+    <button class="btn btn-outline btn-sm" id="b1qf-pending" onclick="b1QuickFilter('pending')">Action Pending</button>
+    <button class="btn btn-outline btn-sm" id="b1qf-warning" onclick="b1QuickFilter('warning')">Warning Sent</button>
+    <button class="btn btn-outline btn-sm" id="b1qf-penalty" onclick="b1QuickFilter('penalty')">Penalty Sent</button>
+    <button class="btn btn-outline btn-sm" id="b1qf-nomail" onclick="b1QuickFilter('nomail')">No Email</button>
+  </div>
+
+  <!-- Jump to section bar -->
+  <div id="b1-jump-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;position:sticky;top:56px;z-index:100;background:var(--bg);padding:8px 0"></div>
+
   <!-- Filter bar -->
   <div class="filter-bar">
     <select id="b1fPartner" onchange="loadB1Cases()"><option value="all">All Partners</option></select>
@@ -1393,6 +1404,41 @@ async function handlePenaltyUpload(input) {
 // ═══════════════════════════════════════════════════════════════════════════════
 let b1Cases = [];
 let b1Selected = new Set();
+let b1ActiveQuickFilter = null;
+
+function b1QuickFilter(filter) {
+  const active = b1ActiveQuickFilter === filter ? null : filter;
+  b1ActiveQuickFilter = active;
+
+  // Update button styles
+  ['pending','warning','penalty','nomail'].forEach(f => {
+    const btn = document.getElementById('b1qf-'+f);
+    if (btn) {
+      btn.classList.toggle('btn-primary', f === active);
+      btn.classList.toggle('btn-outline', f !== active);
+      if (f === active) btn.style.color = 'white';
+      else btn.style.color = '';
+    }
+  });
+
+  // Set dropdown values based on filter
+  const actionSel = document.getElementById('b1fAction');
+  const emailSel = document.getElementById('b1fEmail');
+  if (actionSel) actionSel.value = 'all';
+  if (emailSel) emailSel.value = 'all';
+
+  if (active === 'pending') {
+    // action_type is null — no dropdown for that, need client-side filter
+  } else if (active === 'warning') {
+    if (actionSel) actionSel.value = 'warning';
+    if (emailSel) emailSel.value = 'sent';
+  } else if (active === 'penalty') {
+    if (actionSel) actionSel.value = 'penalty';
+  }
+  // nomail and pending need client-side filtering in renderB1Cases
+
+  loadB1Cases();
+}
 
 async function syncBreach1() {
   document.getElementById('b1-sync-status').textContent = 'Syncing…';
@@ -1607,7 +1653,7 @@ function _restoreB1CollapseStates(states) {
 
 function renderB1Cases() {
   const body = document.getElementById('b1Body');
-  const cases = Array.isArray(b1Cases) ? b1Cases : [];
+  let cases = Array.isArray(b1Cases) ? b1Cases : [];
   document.getElementById('b1fCount').textContent = cases.length + ' case(s)';
   if (!cases.length) {
     body.innerHTML = '<div class="empty-state">No cases. Click "Sync from Sheet" to import.</div>';
@@ -1673,6 +1719,13 @@ function renderB1Cases() {
     </tr>`;
   }
 
+  // Apply quick filters that can't use API
+  if (b1ActiveQuickFilter === 'pending') {
+    cases = cases.filter(c => !c.action_type);
+  } else if (b1ActiveQuickFilter === 'nomail') {
+    cases = cases.filter(c => !c.partner_email);
+  }
+
   // Merge churn_logic + churn_feb into combined group
   const bySrc = {};
   cases.forEach(c => {
@@ -1683,7 +1736,7 @@ function renderB1Cases() {
   const churnCases = [...(bySrc['churn_logic']||[]), ...(bySrc['churn_feb']||[])];
   const displayGroups = {};
   if (churnCases.length) displayGroups['churn_6mo'] = churnCases;
-  ['rohit_call_tagging','cancelled_calling'].forEach(s => {
+  ['rohit_call_tagging','cancelled_calling','cx_churn_px_interaction','cx_churn_no_tickets'].forEach(s => {
     if (bySrc[s] && bySrc[s].length) displayGroups[s] = bySrc[s];
   });
   // Split customer_complaint into Put / Pitch / Other
@@ -1702,12 +1755,14 @@ function renderB1Cases() {
 
   const displayColors = {
     churn_6mo: '#8B5CF6', rohit_call_tagging: '#F59E0B',
-    cancelled_calling: '#F97316', complaint_put: '#EF4444', complaint_pitch: '#F97316',
+    cancelled_calling: '#F97316', cx_churn_px_interaction: '#06B6D4', cx_churn_no_tickets: '#14B8A6',
+    complaint_put: '#EF4444', complaint_pitch: '#F97316',
     complaint_other: '#DC2626', manual_report: '#10B981',
   };
   const displayLabels = {
     churn_6mo: '6mo Churn', rohit_call_tagging: 'Rohit Call Tagging',
-    cancelled_calling: 'Cancelled Calling', complaint_put: 'Complaints — Put Non-Wiom',
+    cancelled_calling: 'Cancelled Calling', cx_churn_px_interaction: 'Churn After Px Interaction', cx_churn_no_tickets: 'Churn Without Tickets',
+    complaint_put: 'Complaints — Put Non-Wiom',
     complaint_pitch: 'Complaints — Pitched Non-Wiom', complaint_other: 'Complaints — Other',
     manual_report: 'Manual Report',
   };
@@ -1803,6 +1858,31 @@ function renderB1Cases() {
       });
       html += `</tbody></table>`;
 
+    } else if (src === 'cx_churn_px_interaction' || src === 'cx_churn_no_tickets') {
+      const cols = 9;
+      html += `<table><thead><tr>
+        <th class="check-col"><input type="checkbox" onchange="b1SelectAllInSource(this,'${srcKey}')"/></th>
+        <th>Mobile</th><th>Partner</th><th>Account ID</th><th>City</th><th>Call Connected</th><th>Remarks</th><th>Email</th><th>Action</th>
+      </tr></thead><tbody>`;
+      partners.forEach(([pName, pCases]) => {
+        const pKey = srcKey + '_' + pName.replace(/[^a-zA-Z0-9]/g,'_');
+        html += partnerHeader(pName, pCases, srcKey, cols);
+        pCases.forEach(c => {
+          html += `<tr class="b1p-${pKey}">
+            <td class="check-col"><input type="checkbox" class="b1-chk b1chk-${srcKey} b1pchk-${pKey}" value="${c.id}" ${b1Selected.has(c.id)?'checked':''} onchange="b1HandleChk(this)"/></td>
+            <td>${c.customer_mobile||'—'}</td>
+            <td style="font-size:12px">${c.partner_name||'—'}</td>
+            <td style="font-size:12px">${c.partner_id||'—'}</td>
+            <td style="font-size:12px">${c.city||'—'}</td>
+            <td style="font-size:12px">${c.connected||'—'}</td>
+            <td style="font-size:12px">${c.calling_remarks||'—'}</td>
+            <td>${emailBadge(c)}</td>
+            <td>${actionBadge(c)}</td>
+          </tr>`;
+        });
+      });
+      html += `</tbody></table>`;
+
     } else if (src.startsWith('complaint_')) {
       const cols = 9;
       html += `<table><thead><tr>
@@ -1856,6 +1936,17 @@ function renderB1Cases() {
   }
 
   body.innerHTML = html;
+
+  // Jump bar
+  const jumpBar = document.getElementById('b1-jump-bar');
+  if (jumpBar) {
+    jumpBar.innerHTML = Object.entries(displayGroups).map(([src, cases]) => {
+      const srcKey = src.replace(/[^a-zA-Z0-9]/g,'');
+      const color = displayColors[src] || '#888';
+      const label = displayLabels[src] || src;
+      return `<a href="#b1card-${srcKey}" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;color:${color};background:${color}11;border:1px solid ${color}33;text-decoration:none;white-space:nowrap" onclick="event.preventDefault();document.getElementById('b1card-${srcKey}')?.scrollIntoView({behavior:'smooth',block:'start'})">${label} (${cases.length})</a>`;
+    }).join('');
+  }
 }
 
 function toggleB1Source(key) {
