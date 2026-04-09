@@ -1012,7 +1012,9 @@ def breach1_sync():
     try:
         from google_sheets import (fetch_disintermediation_cases, get_all_partner_emails,
                                    fetch_churn_feb_cases, fetch_rohit_call_tagging_cases,
-                                   fetch_cancelled_calling_cases, fetch_customer_complaint_cases)
+                                   fetch_cancelled_calling_cases, fetch_customer_complaint_cases,
+                                   fetch_cx_churn_px_interaction_cases,
+                                   fetch_cx_churn_without_tickets_cases)
         emails = get_all_partner_emails()
         emails_by_id = _build_partner_id_index(emails)
         total_new = 0
